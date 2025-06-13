@@ -8,10 +8,20 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
+    // Check for session expired message
+    if (typeof window !== "undefined") {
+      const authMessage = sessionStorage.getItem("auth_message");
+      if (authMessage) {
+        setInfo(authMessage);
+        sessionStorage.removeItem("auth_message"); // Clear it after showing
+      }
+    }
+
     // Redirect if already authenticated
     if (isAuthenticated()) {
       router.push("/dashboard");
@@ -29,6 +39,7 @@ export default function LoginPage() {
     try {
       setLoading(true);
       setError(null);
+      setInfo(null); // Clear any info messages
 
       await login(email, password);
 
@@ -46,13 +57,24 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold">Green Energy Trading</h1>
-          <h2 className="text-xl">Admin Portal</h2>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Green Energy Trading
+          </h1>
+          <h2 className="text-xl text-gray-700">Admin Portal</h2>
+          <p className="text-sm text-gray-600 mt-2">
+            Administrator access only
+          </p>
         </div>
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             {error}
+          </div>
+        )}
+
+        {info && (
+          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+            {info}
           </div>
         )}
 
@@ -66,7 +88,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white placeholder-gray-500"
               placeholder="Enter your email"
               required
             />
@@ -81,7 +103,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white placeholder-gray-500"
               placeholder="Enter your password"
               required
             />

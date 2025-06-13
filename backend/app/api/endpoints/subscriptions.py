@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app import models, schemas
+from app.api import deps
+from app.crud import subscription as crud_subscription
 from app.db.session import get_db
 
 router = APIRouter()
@@ -14,65 +16,111 @@ def read_subscriptions(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
+    current_user: models.User = Depends(deps.get_current_admin_user),
 ) -> Any:
     """
-    Retrieve subscriptions.
+    Retrieve subscriptions. Admin only.
     """
-    subscriptions = db.query(models.Subscription).offset(skip).limit(limit).all()
+    subscriptions = crud_subscription.subscription.get_multi(db, skip=skip, limit=limit)
     return subscriptions
 
-@router.get("/{subscription_id}", response_model=schemas.Subscription)
-def read_subscription(
-    *,
+@router.get("/active", response_model=List[schemas.Subscription])
+def read_active_subscriptions(
     db: Session = Depends(get_db),
-    subscription_id: int,
+    current_user: models.User = Depends(deps.get_current_admin_user),
 ) -> Any:
     """
-    Get subscription by ID.
+    Retrieve active subscriptions. Admin only.
     """
-    subscription = db.query(models.Subscription).filter(models.Subscription.id == subscription_id).first()
-    if not subscription:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Subscription not found",
-        )
-    return subscription
+    subscriptions = crud_subscription.subscription.get_active(db)
+    return subscriptions
 
 @router.post("/", response_model=schemas.Subscription)
 def create_subscription(
     *,
     db: Session = Depends(get_db),
     subscription_in: schemas.SubscriptionCreate,
+    current_user: models.User = Depends(deps.get_current_admin_user),
 ) -> Any:
     """
-    Create new subscription.
+    Create new subscription. Admin only.
     """
-    # Check if user exists
-    user = db.query(models.User).filter(models.User.id == subscription_in.user_id).first()
-    if not user:
+    # Check if subscription with this name already exists
+    subscription = crud_subscription.subscription.get_by_name(db, name=subscription_in.name)
+    if subscription:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            status_code=400,
+            detail="The subscription with this name already exists in the system.",
         )
     
-    # Create subscription
-    subscription = models.Subscription(
-        user_id=subscription_in.user_id,
-        type=subscription_in.type,
-        start_date=subscription_in.start_date,
-        end_date=subscription_in.end_date,
-        is_active=subscription_in.is_active,
-        payment_id=subscription_in.payment_id,
-    )
-    db.add(subscription)
-    
-    # Update user subscription information
-    user.subscription_type = subscription_in.type
-    user.subscription_end_date = subscription_in.end_date
-    
-    db.commit()
-    db.refresh(subscription)
+    subscription = crud_subscription.subscription.create(db, obj_in=subscription_in)
     return subscription
+
+@router.get("/{subscription_id}", response_model=schemas.Subscription)
+def read_subscription(
+    subscription_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_admin_user),
+) -> Any:
+    """
+    Get subscription by ID. Admin only.
+    """
+    subscription = crud_subscription.subscription.get(db, id=subscription_id)
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    return subscription
+
+@router.put("/{subscription_id}", response_model=schemas.Subscription)
+def update_subscription(
+    *,
+    db: Session = Depends(get_db),
+    subscription_id: int,
+    subscription_in: schemas.SubscriptionUpdate,
+    current_user: models.User = Depends(deps.get_current_admin_user),
+) -> Any:
+    """
+    Update subscription. Admin only.
+    """
+    subscription = crud_subscription.subscription.get(db, id=subscription_id)
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    
+    # Check if name is being changed and if it conflicts
+    if subscription_in.name and subscription_in.name != subscription.name:
+        existing = crud_subscription.subscription.get_by_name(db, name=subscription_in.name)
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="The subscription with this name already exists in the system.",
+            )
+    
+    subscription = crud_subscription.subscription.update(db, db_obj=subscription, obj_in=subscription_in)
+    return subscription
+
+@router.delete("/{subscription_id}", response_model=dict)
+def delete_subscription(
+    *,
+    db: Session = Depends(get_db),
+    subscription_id: int,
+    current_user: models.User = Depends(deps.get_current_admin_user),
+) -> Any:
+    """
+    Delete subscription. Admin only.
+    """
+    subscription = crud_subscription.subscription.get(db, id=subscription_id)
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    
+    # Check if any users are using this subscription
+    users_count = db.query(models.User).filter(models.User.subscription_type == subscription.name).count()
+    if users_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete subscription. {users_count} users are currently using this subscription type.",
+        )
+    
+    crud_subscription.subscription.remove(db, id=subscription_id)
+    return {"message": f"Subscription {subscription.display_name} deleted successfully"}
 
 @router.post("/trial", response_model=schemas.Subscription)
 def create_trial_subscription(

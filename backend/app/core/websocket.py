@@ -4,6 +4,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.websockets import WebSocketState
 import asyncio
 import logging
+from .redis import redis_manager
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,8 @@ class ConnectionManager:
     async def subscribe_to_asset(self, websocket: WebSocket, asset_id: int):
         if asset_id not in self.asset_subscribers:
             self.asset_subscribers[asset_id] = []
+            # Subscribe to Redis channel for this asset
+            redis_manager.subscribe(f"asset:{asset_id}")
         
         if websocket not in self.asset_subscribers[asset_id]:
             self.asset_subscribers[asset_id].append(websocket)
@@ -64,9 +67,10 @@ class ConnectionManager:
     async def unsubscribe_from_asset(self, websocket: WebSocket, asset_id: int):
         if asset_id in self.asset_subscribers and websocket in self.asset_subscribers[asset_id]:
             self.asset_subscribers[asset_id].remove(websocket)
-            
             if not self.asset_subscribers[asset_id]:
                 del self.asset_subscribers[asset_id]
+                # Unsubscribe from Redis channel
+                redis_manager.pubsub.unsubscribe(f"asset:{asset_id}")
             
             await websocket.send_text(json.dumps({
                 "event": "unsubscribed",
@@ -75,7 +79,11 @@ class ConnectionManager:
             
             logger.info(f"WebSocket unsubscribed from asset {asset_id}")
     
-    async def broadcast_to_asset_subscribers(self, asset_id: int, message: Dict[str, Any]):
+    async def broadcast_asset_update(self, asset_id: int, message: Dict[str, Any]):
+        # Publish to Redis channel
+        redis_manager.publish(f"asset:{asset_id}", message)
+        
+        # Send to local subscribers
         if asset_id in self.asset_subscribers:
             disconnected_clients = []
             
@@ -90,7 +98,7 @@ class ConnectionManager:
             for websocket in disconnected_clients:
                 self.disconnect(websocket)
                 
-            logger.info(f"Broadcast message to {len(self.asset_subscribers[asset_id])} subscribers of asset {asset_id}")
+            logger.info(f"Broadcast asset update to {len(self.asset_subscribers[asset_id])} subscribers")
     
     async def send_personal_message(self, user_id: int, message: Dict[str, Any]):
         if user_id in self.user_connections:
@@ -110,6 +118,9 @@ class ConnectionManager:
             logger.info(f"Sent personal message to user {user_id}")
     
     async def broadcast(self, message: Dict[str, Any]):
+        # Publish to Redis broadcast channel
+        redis_manager.publish("broadcast", message)
+        
         disconnected_clients = []
         
         for websocket in self.active_connections:
@@ -125,7 +136,7 @@ class ConnectionManager:
             
         logger.info(f"Broadcast message to all {len(self.active_connections)} connections")
 
-# Global instance of the connection manager
+# Create a global connection manager instance
 manager = ConnectionManager()
 
 # Market update events
@@ -133,7 +144,7 @@ async def send_asset_price_update(asset_id: int, new_price: float, last_updated:
     """
     Send asset price update to all subscribers of the asset
     """
-    await manager.broadcast_to_asset_subscribers(asset_id, {
+    await manager.broadcast_asset_update(asset_id, {
         "event": "asset_price_update",
         "asset_id": asset_id,
         "price": new_price,
@@ -144,7 +155,7 @@ async def send_order_book_update(asset_id: int, order_book: dict):
     """
     Send order book update to all subscribers of the asset
     """
-    await manager.broadcast_to_asset_subscribers(asset_id, {
+    await manager.broadcast_asset_update(asset_id, {
         "event": "order_book_update",
         "asset_id": asset_id,
         "order_book": order_book

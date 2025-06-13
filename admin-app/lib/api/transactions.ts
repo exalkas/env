@@ -4,18 +4,19 @@ import { API_URL } from "../config";
 export interface Transaction {
   id: number;
   asset_id: number;
-  asset_name: string;
-  asset_type: string;
+  asset_name?: string;
+  asset_type?: string;
   seller_id: number;
-  seller_name: string;
+  seller_name?: string;
   buyer_id: number;
-  buyer_name: string;
+  buyer_name?: string;
   quantity: number;
   price: number;
   total_amount: number;
-  status: string;
-  created_at: string;
-  completed_at: string | null;
+  status?: string;
+  created_at?: string;
+  timestamp?: string;
+  completed_at?: string | null;
 }
 
 export interface TransactionFilter {
@@ -32,7 +33,7 @@ export const TransactionApi = {
   getTransactions: async (
     filters?: TransactionFilter
   ): Promise<Transaction[]> => {
-    let url = `${API_URL}/transactions/`;
+    let url = `${API_URL}/market/transactions/`;
 
     if (filters) {
       const queryParams = new URLSearchParams();
@@ -57,7 +58,7 @@ export const TransactionApi = {
   // Get transaction by ID
   getTransaction: async (transactionId: number): Promise<Transaction> => {
     const response = await fetchWithAuth(
-      `${API_URL}/transactions/${transactionId}`
+      `${API_URL}/market/transactions/${transactionId}`
     );
     if (!response.ok) {
       throw new Error("Failed to fetch transaction");
@@ -67,7 +68,7 @@ export const TransactionApi = {
 
   // Get transaction statistics
   getTransactionStats: async (filters?: TransactionFilter): Promise<any> => {
-    let url = `${API_URL}/transactions/stats`;
+    let url = `${API_URL}/market/transactions/stats`;
 
     if (filters) {
       const queryParams = new URLSearchParams();
@@ -92,7 +93,7 @@ export const TransactionApi = {
   // Approve a transaction (if needed for certain transaction flows)
   approveTransaction: async (transactionId: number): Promise<Transaction> => {
     const response = await fetchWithAuth(
-      `${API_URL}/transactions/${transactionId}/approve`,
+      `${API_URL}/market/transactions/${transactionId}/approve`,
       {
         method: "POST",
       }
@@ -112,7 +113,7 @@ export const TransactionApi = {
     reason: string
   ): Promise<Transaction> => {
     const response = await fetchWithAuth(
-      `${API_URL}/transactions/${transactionId}/reject`,
+      `${API_URL}/market/transactions/${transactionId}/reject`,
       {
         method: "POST",
         headers: {
@@ -133,7 +134,7 @@ export const TransactionApi = {
   // Get recent transactions (for dashboard)
   getRecentTransactions: async (limit: number = 10): Promise<Transaction[]> => {
     const response = await fetchWithAuth(
-      `${API_URL}/transactions/recent?limit=${limit}`
+      `${API_URL}/market/transactions/recent?limit=${limit}`
     );
     if (!response.ok) {
       throw new Error("Failed to fetch recent transactions");

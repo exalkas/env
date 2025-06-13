@@ -23,31 +23,32 @@ export default function DashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check authentication
-    if (!isAuthenticated()) {
-      router.push("/login");
-      return;
-    }
-
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
 
-        // Fetch data in parallel
-        const [users, assets, transactionStats, recentTransactions] =
-          await Promise.all([
-            UserApi.getUsers(),
-            AssetApi.getAssets(),
-            TransactionApi.getTransactionStats(),
-            TransactionApi.getRecentTransactions(5),
-          ]);
+        // Fetch data with individual error handling
+        const results = await Promise.allSettled([
+          UserApi.getUsers(),
+          AssetApi.getAssets(),
+          TransactionApi.getTransactionStats(),
+          TransactionApi.getRecentTransactions(5),
+        ]);
+
+        const users = results[0].status === "fulfilled" ? results[0].value : [];
+        const assets =
+          results[1].status === "fulfilled" ? results[1].value : [];
+        const transactionStats =
+          results[2].status === "fulfilled" ? results[2].value : {};
+        const recentTransactions =
+          results[3].status === "fulfilled" ? results[3].value : [];
 
         setStats({
-          totalUsers: users.length,
-          totalAssets: assets.length,
-          totalTransactions: transactionStats.total_count || 0,
-          totalVolume: transactionStats.total_volume || 0,
-          recentTransactions,
+          totalUsers: users?.length || 0,
+          totalAssets: assets?.length || 0,
+          totalTransactions: transactionStats?.total_transactions || 0,
+          totalVolume: transactionStats?.total_volume || 0,
+          recentTransactions: recentTransactions || [],
         });
 
         setError(null);
@@ -80,8 +81,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
+    <div>
+      <h1 className="text-2xl font-bold mb-6 text-gray-900">Admin Dashboard</h1>
 
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -97,7 +98,9 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold text-gray-600 mb-2">
                 Total Users
               </h2>
-              <p className="text-3xl font-bold">{stats.totalUsers}</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {stats.totalUsers}
+              </p>
               <Link href="/users" className="text-blue-500 text-sm mt-4 block">
                 View all users →
               </Link>
@@ -107,7 +110,9 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold text-gray-600 mb-2">
                 Total Assets
               </h2>
-              <p className="text-3xl font-bold">{stats.totalAssets}</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {stats.totalAssets}
+              </p>
               <Link href="/assets" className="text-blue-500 text-sm mt-4 block">
                 View all assets →
               </Link>
@@ -117,7 +122,9 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold text-gray-600 mb-2">
                 Total Transactions
               </h2>
-              <p className="text-3xl font-bold">{stats.totalTransactions}</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {stats.totalTransactions}
+              </p>
               <Link
                 href="/transactions"
                 className="text-blue-500 text-sm mt-4 block"
@@ -130,7 +137,7 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold text-gray-600 mb-2">
                 Trading Volume
               </h2>
-              <p className="text-3xl font-bold">
+              <p className="text-3xl font-bold text-gray-900">
                 {formatCurrency(stats.totalVolume)}
               </p>
               <Link
@@ -145,7 +152,9 @@ export default function DashboardPage() {
           {/* Recent Transactions */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-8">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Recent Transactions</h2>
+              <h2 className="text-xl font-semibold text-gray-900">
+                Recent Transactions
+              </h2>
               <Link href="/transactions" className="text-blue-500">
                 View all
               </Link>
@@ -155,12 +164,24 @@ export default function DashboardPage() {
               <table className="min-w-full">
                 <thead>
                   <tr className="bg-gray-100">
-                    <th className="py-2 px-4 text-left">ID</th>
-                    <th className="py-2 px-4 text-left">Asset</th>
-                    <th className="py-2 px-4 text-left">Buyer</th>
-                    <th className="py-2 px-4 text-left">Seller</th>
-                    <th className="py-2 px-4 text-left">Amount</th>
-                    <th className="py-2 px-4 text-left">Date</th>
+                    <th className="py-2 px-4 text-left text-gray-900 font-semibold">
+                      ID
+                    </th>
+                    <th className="py-2 px-4 text-left text-gray-900 font-semibold">
+                      Asset
+                    </th>
+                    <th className="py-2 px-4 text-left text-gray-900 font-semibold">
+                      Buyer
+                    </th>
+                    <th className="py-2 px-4 text-left text-gray-900 font-semibold">
+                      Seller
+                    </th>
+                    <th className="py-2 px-4 text-left text-gray-900 font-semibold">
+                      Amount
+                    </th>
+                    <th className="py-2 px-4 text-left text-gray-900 font-semibold">
+                      Date
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -175,20 +196,27 @@ export default function DashboardPage() {
                             #{transaction.id}
                           </Link>
                         </td>
-                        <td className="py-2 px-4 border-b">
-                          {transaction.asset_name}
+                        <td className="py-2 px-4 border-b text-gray-900">
+                          {transaction.asset_name ||
+                            `Asset ${transaction.asset_id}`}
                         </td>
-                        <td className="py-2 px-4 border-b">
-                          {transaction.buyer_name}
+                        <td className="py-2 px-4 border-b text-gray-900">
+                          {transaction.buyer_name ||
+                            `User ${transaction.buyer_id}`}
                         </td>
-                        <td className="py-2 px-4 border-b">
-                          {transaction.seller_name}
+                        <td className="py-2 px-4 border-b text-gray-900">
+                          {transaction.seller_name ||
+                            `User ${transaction.seller_id}`}
                         </td>
-                        <td className="py-2 px-4 border-b">
-                          {formatCurrency(transaction.total_amount)}
+                        <td className="py-2 px-4 border-b text-gray-900">
+                          {formatCurrency(transaction.total_amount || 0)}
                         </td>
-                        <td className="py-2 px-4 border-b">
-                          {formatDate(transaction.created_at)}
+                        <td className="py-2 px-4 border-b text-gray-900">
+                          {formatDate(
+                            transaction.timestamp ||
+                              transaction.created_at ||
+                              new Date().toISOString()
+                          )}
                         </td>
                       </tr>
                     ))
@@ -209,13 +237,17 @@ export default function DashboardPage() {
 
           {/* Quick Links */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
+            <h2 className="text-xl font-semibold mb-4 text-gray-900">
+              Quick Actions
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Link
                 href="/assets/create"
                 className="block p-4 border border-gray-200 rounded-md hover:bg-gray-50"
               >
-                <h3 className="font-semibold">Create New Asset</h3>
+                <h3 className="font-semibold text-gray-900">
+                  Create New Asset
+                </h3>
                 <p className="text-sm text-gray-600 mt-1">
                   Add a new green energy asset to the platform
                 </p>
@@ -225,7 +257,7 @@ export default function DashboardPage() {
                 href="/users"
                 className="block p-4 border border-gray-200 rounded-md hover:bg-gray-50"
               >
-                <h3 className="font-semibold">Manage Users</h3>
+                <h3 className="font-semibold text-gray-900">Manage Users</h3>
                 <p className="text-sm text-gray-600 mt-1">
                   View, edit, and manage user accounts
                 </p>
@@ -235,7 +267,9 @@ export default function DashboardPage() {
                 href="/transactions"
                 className="block p-4 border border-gray-200 rounded-md hover:bg-gray-50"
               >
-                <h3 className="font-semibold">Review Transactions</h3>
+                <h3 className="font-semibold text-gray-900">
+                  Review Transactions
+                </h3>
                 <p className="text-sm text-gray-600 mt-1">
                   Monitor and review recent transactions
                 </p>

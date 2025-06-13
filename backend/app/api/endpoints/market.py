@@ -22,6 +22,19 @@ def get_assets(
     assets = db.query(models.market.Asset).filter(models.market.Asset.is_active == True).offset(skip).limit(limit).all()
     return assets
 
+@router.get("/assets/admin/", response_model=List[schemas.market.Asset])
+def get_assets_admin(
+    db: Session = Depends(deps.get_db),
+    skip: int = 0,
+    limit: int = 100,
+    current_user: models.User = Depends(deps.get_current_admin),
+):
+    """
+    Retrieve all assets for admin (including inactive).
+    """
+    assets = db.query(models.market.Asset).offset(skip).limit(limit).all()
+    return assets
+
 @router.get("/assets/{asset_id}", response_model=schemas.market.Asset)
 def get_asset(
     asset_id: int,
@@ -263,4 +276,66 @@ def get_transactions(
         (models.market.Transaction.seller_id == current_user.id)
     ).offset(skip).limit(limit).all()
     
-    return transactions 
+    return transactions
+
+@router.get("/transactions/stats")
+def get_transaction_stats(
+    db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_admin),
+):
+    """
+    Get transaction statistics (admin only).
+    """
+    from sqlalchemy import func
+    
+    # Get total transaction count
+    total_transactions = db.query(models.market.Transaction).count()
+    
+    # Get total volume
+    total_volume = db.query(func.sum(models.market.Transaction.total_amount)).scalar() or 0
+    
+    # Get today's transactions
+    from datetime import datetime, timedelta
+    today = datetime.utcnow().date()
+    today_transactions = db.query(models.market.Transaction).filter(
+        func.date(models.market.Transaction.timestamp) == today
+    ).count()
+    
+    # Get this month's volume
+    month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_volume = db.query(func.sum(models.market.Transaction.total_amount)).filter(
+        models.market.Transaction.timestamp >= month_start
+    ).scalar() or 0
+    
+    return {
+        "total_transactions": total_transactions,
+        "total_volume": float(total_volume),
+        "today_transactions": today_transactions,
+        "month_volume": float(month_volume)
+    }
+
+@router.get("/transactions/recent")
+def get_recent_transactions(
+    limit: int = 5,
+    db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_admin),
+):
+    """
+    Get recent transactions (admin only).
+    """
+    transactions = db.query(models.market.Transaction).order_by(
+        models.market.Transaction.timestamp.desc()
+    ).limit(limit).all()
+    
+    return [
+        {
+            "id": t.id,
+            "timestamp": t.timestamp,
+            "buyer_id": t.buyer_id,
+            "seller_id": t.seller_id,
+            "asset_id": t.asset_id,
+            "quantity": t.quantity,
+            "price": t.price,
+            "total_amount": t.total_amount
+        } for t in transactions
+    ] 

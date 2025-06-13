@@ -61,7 +61,7 @@ export default function AssetsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Asset Management</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Asset Management</h1>
         <Link
           href="/assets/create"
           className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition"
@@ -85,30 +85,65 @@ export default function AssetsPage() {
           <table className="min-w-full bg-white border border-gray-200">
             <thead>
               <tr className="bg-gray-100">
-                <th className="py-2 px-4 border-b text-left">ID</th>
-                <th className="py-2 px-4 border-b text-left">Name</th>
-                <th className="py-2 px-4 border-b text-left">Type</th>
-                <th className="py-2 px-4 border-b text-left">Price</th>
-                <th className="py-2 px-4 border-b text-left">Supply</th>
-                <th className="py-2 px-4 border-b text-left">Status</th>
-                <th className="py-2 px-4 border-b text-left">Actions</th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  ID
+                </th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  Name
+                </th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  Symbol
+                </th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  Type
+                </th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  Price
+                </th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  KYC Required
+                </th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  Status
+                </th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {assets.map((asset) => (
                 <tr key={asset.id} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border-b">{asset.id}</td>
-                  <td className="py-2 px-4 border-b">{asset.name}</td>
-                  <td className="py-2 px-4 border-b">
-                    {getAssetTypeName(asset.type)}
+                  <td className="py-2 px-4 border-b text-gray-900">
+                    {asset.id}
                   </td>
-                  <td className="py-2 px-4 border-b">
-                    ${asset.price.toFixed(2)}
+                  <td className="py-2 px-4 border-b text-gray-900">
+                    {asset.name}
                   </td>
-                  <td className="py-2 px-4 border-b">
-                    {asset.available_supply} / {asset.total_supply}
+                  <td className="py-2 px-4 border-b text-gray-900">
+                    {asset.symbol}
                   </td>
-                  <td className="py-2 px-4 border-b">
+                  <td className="py-2 px-4 border-b text-gray-900">
+                    {getAssetTypeName(asset.asset_type)}
+                  </td>
+                  <td className="py-2 px-4 border-b text-gray-900">
+                    $
+                    {asset.current_price
+                      ? asset.current_price.toFixed(2)
+                      : "0.00"}
+                  </td>
+                  <td className="py-2 px-4 border-b text-gray-900">
+                    <span
+                      className={`px-2 py-1 rounded text-xs ${
+                        asset.requires_kyc
+                          ? "bg-orange-100 text-orange-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {asset.requires_kyc ? "Yes" : "No"}
+                    </span>
+                  </td>
+                  <td className="py-2 px-4 border-b text-gray-900">
                     <span
                       className={`px-2 py-1 rounded text-xs ${
                         asset.is_active

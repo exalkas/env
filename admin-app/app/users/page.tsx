@@ -5,6 +5,7 @@ import Link from "next/link";
 import { UserApi, User } from "../../lib/api/users";
 import { isAuthenticated } from "../../lib/utils/auth";
 import { useRouter } from "next/navigation";
+import { PlusIcon } from "@heroicons/react/24/outline";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -13,12 +14,6 @@ export default function UsersPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check authentication
-    if (!isAuthenticated()) {
-      router.push("/login");
-      return;
-    }
-
     const fetchUsers = async () => {
       try {
         setLoading(true);
@@ -66,10 +61,41 @@ export default function UsersPage() {
     }
   };
 
+  const handleDeleteUser = async (userId: number, userEmail: string) => {
+    if (
+      !confirm(
+        `Are you sure you want to delete user ${userEmail}? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await UserApi.deleteUser(userId);
+
+      // Refresh the user list
+      const updatedUsers = await UserApi.getUsers();
+      setUsers(updatedUsers);
+
+      // Show success message briefly
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || "Failed to delete user. Please try again.");
+      console.error(err);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">User Management</h1>
+        <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+        <Link
+          href="/users/new"
+          className="bg-green-500 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-green-600 transition"
+        >
+          <PlusIcon className="h-4 w-4" />
+          Add User
+        </Link>
       </div>
 
       {error && (
@@ -87,21 +113,41 @@ export default function UsersPage() {
           <table className="min-w-full bg-white border border-gray-200">
             <thead>
               <tr className="bg-gray-100">
-                <th className="py-2 px-4 border-b text-left">ID</th>
-                <th className="py-2 px-4 border-b text-left">Name</th>
-                <th className="py-2 px-4 border-b text-left">Email</th>
-                <th className="py-2 px-4 border-b text-left">Status</th>
-                <th className="py-2 px-4 border-b text-left">KYC Status</th>
-                <th className="py-2 px-4 border-b text-left">Role</th>
-                <th className="py-2 px-4 border-b text-left">Actions</th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  ID
+                </th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  Name
+                </th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  Email
+                </th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  Status
+                </th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  KYC Status
+                </th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  Role
+                </th>
+                <th className="py-2 px-4 border-b text-left text-gray-900">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {users.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border-b">{user.id}</td>
-                  <td className="py-2 px-4 border-b">{user.full_name}</td>
-                  <td className="py-2 px-4 border-b">{user.email}</td>
+                  <td className="py-2 px-4 border-b text-gray-900">
+                    {user.id}
+                  </td>
+                  <td className="py-2 px-4 border-b text-gray-900">
+                    {user.full_name}
+                  </td>
+                  <td className="py-2 px-4 border-b text-gray-900">
+                    {user.email}
+                  </td>
                   <td className="py-2 px-4 border-b">
                     <span
                       className={`px-2 py-1 rounded text-xs ${
@@ -127,12 +173,17 @@ export default function UsersPage() {
                   <td className="py-2 px-4 border-b">
                     <span
                       className={`px-2 py-1 rounded text-xs ${
-                        user.is_admin
+                        user.is_super_admin
+                          ? "bg-red-100 text-red-800"
+                          : user.is_admin
                           ? "bg-purple-100 text-purple-800"
                           : "bg-blue-100 text-blue-800"
                       }`}
                     >
-                      {user.is_admin ? "Admin" : "User"}
+                      {user.is_super_admin
+                        ? "SA"
+                        : user.role?.display_name ||
+                          (user.is_admin ? "Admin" : "User")}
                     </span>
                   </td>
                   <td className="py-2 px-4 border-b">
@@ -143,20 +194,30 @@ export default function UsersPage() {
                       >
                         View
                       </Link>
-                      <button
-                        onClick={() =>
-                          handleStatusChange(user.id, user.is_active)
-                        }
-                        className="text-blue-500 hover:text-blue-700"
-                      >
-                        {user.is_active ? "Deactivate" : "Activate"}
-                      </button>
+                      {!user.is_super_admin && (
+                        <button
+                          onClick={() =>
+                            handleStatusChange(user.id, user.is_active)
+                          }
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          {user.is_active ? "Deactivate" : "Activate"}
+                        </button>
+                      )}
                       {!user.kyc_verified && (
                         <button
                           onClick={() => handleKycVerification(user.id)}
                           className="text-green-500 hover:text-green-700"
                         >
                           Verify KYC
+                        </button>
+                      )}
+                      {!user.is_super_admin && (
+                        <button
+                          onClick={() => handleDeleteUser(user.id, user.email)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          Delete
                         </button>
                       )}
                     </div>

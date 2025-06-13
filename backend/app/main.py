@@ -1,9 +1,16 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from .core.config import settings
+from .core.tasks import process_redis_messages
+from .core.websocket import manager
+from .api.api import api_router
+import asyncio
+import logging
+import json
 
-from app.api.api import api_router
-from app.api.endpoints.websocket import router as websocket_router
-from app.core.config import settings
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Green Energy Trading API",
@@ -26,8 +33,53 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include API routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
-app.include_router(websocket_router, prefix="/ws")
+
+# WebSocket endpoint
+@app.websocket("/ws/{client_id}")
+async def websocket_endpoint(websocket: WebSocket, client_id: int):
+    await manager.connect(websocket, client_id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            
+            # Handle different message types
+            if message.get("action") == "subscribe_asset":
+                asset_id = message.get("asset_id")
+                if asset_id:
+                    await manager.subscribe_to_asset(websocket, asset_id)
+            
+            elif message.get("action") == "unsubscribe_asset":
+                asset_id = message.get("asset_id")
+                if asset_id:
+                    await manager.unsubscribe_from_asset(websocket, asset_id)
+            
+            else:
+                # Echo back for testing
+                await websocket.send_text(f"Message received: {data}")
+                
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, client_id)
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    Initialize services on startup
+    """
+    # Start Redis message processor
+    asyncio.create_task(process_redis_messages())
+    logger.info("Started Redis message processor")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """
+    Cleanup on shutdown
+    """
+    from .core.redis import redis_manager
+    redis_manager.close()
+    logger.info("Closed Redis connection")
 
 @app.get("/")
 async def root():

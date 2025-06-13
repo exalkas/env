@@ -10,8 +10,8 @@ This document outlines the technical architecture for the Green Energy Trading M
 
 - **Landing Page**:
 
-  - Technology: Next.js
-  - Hosting: Digital Ocean
+  - Technology: Wordpress
+  - Hosting: AWS Lightsail
   - Purpose: Marketing, user acquisition
 
 - **Main Application**:

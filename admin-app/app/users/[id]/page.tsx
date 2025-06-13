@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { UserApi, User } from "../../../lib/api/users";
 import { isAuthenticated } from "../../../lib/utils/auth";
 
@@ -27,6 +28,13 @@ export default function UserDetailPage({ params }: UserDetailProps) {
     subscription_type: "",
   });
 
+  // Password change state
+  const [passwordData, setPasswordData] = useState({
+    new_password: "",
+    confirm_password: "",
+  });
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+
   useEffect(() => {
     // Check authentication
     if (!isAuthenticated()) {
@@ -37,16 +45,24 @@ export default function UserDetailPage({ params }: UserDetailProps) {
     const fetchUser = async () => {
       try {
         setLoading(true);
+        setError(null);
+        console.log("Fetching user with ID:", userId);
+
+        if (isNaN(userId)) {
+          throw new Error("Invalid user ID");
+        }
+
         const userData = await UserApi.getUser(userId);
+        console.log("User data received:", userData);
         setUser(userData);
         setFormData({
           full_name: userData.full_name,
           email: userData.email,
           subscription_type: userData.subscription_type,
         });
-      } catch (err) {
-        setError("Failed to load user data. Please try again.");
-        console.error(err);
+      } catch (err: any) {
+        console.error("Error fetching user:", err);
+        setError(`Failed to load user data: ${err.message}`);
       } finally {
         setLoading(false);
       }
@@ -168,194 +184,480 @@ export default function UserDetailPage({ params }: UserDetailProps) {
     }
   };
 
+  const handlePasswordInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const { name, value } = e.target;
+    setPasswordData({
+      ...passwordData,
+      [name]: value,
+    });
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (passwordData.new_password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await UserApi.updateUser(userId, { password: passwordData.new_password });
+      setPasswordData({ new_password: "", confirm_password: "" });
+      setShowPasswordSection(false);
+      setSuccessMessage("Password updated successfully.");
+
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 5000);
+    } catch (err) {
+      setError("Failed to update password. Please try again.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!user) return;
+
+    if (
+      !confirm(
+        `Are you sure you want to delete user ${user.email}? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await UserApi.deleteUser(user.id);
+      router.push("/users");
+    } catch (err: any) {
+      setError(err.message || "Failed to delete user. Please try again.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleBack = () => {
     router.back();
   };
 
   if (loading && !user) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <button
-        onClick={handleBack}
-        className="mb-4 flex items-center text-blue-500 hover:text-blue-700"
-      >
-        <span>← Back to Users</span>
-      </button>
-
-      <h1 className="text-2xl font-bold mb-6">User Details</h1>
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center">
+          <button
+            onClick={handleBack}
+            className="text-blue-500 hover:text-blue-700 mr-4"
+          >
+            ← Back to Users
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900">User Details</h1>
+        </div>
+      </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
           {error}
         </div>
       )}
 
       {successMessage && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
           {successMessage}
         </div>
       )}
 
       {user && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-md md:col-span-2">
-            <h2 className="text-xl font-semibold mb-4">
-              Edit User Information
-            </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Form Section */}
+          <div className="lg:col-span-2">
+            <div className="bg-white shadow-md rounded-lg p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                Edit User Information
+              </h2>
 
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Full Name</label>
-                <input
-                  type="text"
-                  name="full_name"
-                  value={formData.full_name}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  required
-                />
-              </div>
+              <form onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      User ID
+                    </label>
+                    <div className="text-gray-900 font-semibold">
+                      #{user.id}
+                    </div>
+                  </div>
 
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  required
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Created At
+                    </label>
+                    <div className="text-gray-900">
+                      {new Date(user.created_at).toLocaleString()}
+                    </div>
+                  </div>
 
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">
-                  Subscription Type
-                </label>
-                <select
-                  name="subscription_type"
-                  value={formData.subscription_type}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="">None</option>
-                  <option value="basic">Basic</option>
-                  <option value="premium">Premium</option>
-                  <option value="enterprise">Enterprise</option>
-                </select>
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      name="full_name"
+                      value={formData.full_name}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                      placeholder="Enter full name"
+                      required
+                    />
+                  </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-blue-300"
-              >
-                {loading ? "Saving..." : "Save Changes"}
-              </button>
-            </form>
-          </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                      placeholder="Enter email address"
+                      required
+                    />
+                  </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-4">User Status</h2>
+                  {/* Only show subscription type for non-admin users */}
+                  {!user.is_admin && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Subscription Type
+                      </label>
+                      <select
+                        name="subscription_type"
+                        value={formData.subscription_type}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900"
+                      >
+                        <option value="">Select subscription type</option>
+                        <option value="trial">Trial</option>
+                        <option value="basic">Basic</option>
+                        <option value="premium">Premium</option>
+                        <option value="enterprise">Enterprise</option>
+                      </select>
+                    </div>
+                  )}
 
-            <div className="space-y-4">
-              <div>
-                <p className="text-gray-700 mb-2">Account Status</p>
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`px-2 py-1 rounded text-xs ${
-                      user.is_active
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {user.is_active ? "Active" : "Inactive"}
-                  </span>
-                  <button
-                    onClick={handleStatusChange}
-                    disabled={loading}
-                    className="text-blue-500 hover:text-blue-700"
-                  >
-                    {user.is_active ? "Deactivate" : "Activate"}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-gray-700 mb-2">KYC Status</p>
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`px-2 py-1 rounded text-xs ${
-                      user.kyc_verified
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {user.kyc_verified ? "Verified" : "Pending"}
-                  </span>
-                  {!user.kyc_verified && (
-                    <button
-                      onClick={handleKycVerification}
-                      disabled={loading}
-                      className="text-blue-500 hover:text-blue-700"
-                    >
-                      Verify KYC
-                    </button>
+                  {/* Show admin notice for admin users */}
+                  {user.is_admin && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Admin Account
+                      </label>
+                      <div className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-600">
+                        Admin users do not require subscription types
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
 
-              <div>
-                <p className="text-gray-700 mb-2">Role</p>
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`px-2 py-1 rounded text-xs ${
-                      user.is_admin
-                        ? "bg-purple-100 text-purple-800"
-                        : "bg-blue-100 text-blue-800"
-                    }`}
-                  >
-                    {user.is_admin ? "Admin" : "User"}
-                  </span>
+                <div className="mt-6 flex justify-end">
                   <button
-                    onClick={handleAdminStatusChange}
+                    type="submit"
                     disabled={loading}
-                    className="text-blue-500 hover:text-blue-700"
+                    className="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
                   >
-                    {user.is_admin ? "Remove Admin" : "Make Admin"}
+                    {loading ? "Saving..." : "Save Changes"}
                   </button>
                 </div>
-              </div>
+              </form>
+            </div>
+          </div>
 
-              <div>
-                <p className="text-gray-700 mb-2">Created At</p>
-                <p className="text-sm">
-                  {new Date(user.created_at).toLocaleString()}
-                </p>
-              </div>
+          {/* Status & Actions Section */}
+          <div className="lg:col-span-1">
+            <div className="bg-white shadow-md rounded-lg p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                User Status & Actions
+              </h2>
 
-              <div>
-                <p className="text-gray-700 mb-2">Last Updated</p>
-                <p className="text-sm">
-                  {new Date(user.updated_at).toLocaleString()}
-                </p>
-              </div>
-
-              {user.subscription_end_date && (
+              <div className="space-y-6">
                 <div>
-                  <p className="text-gray-700 mb-2">Subscription Ends</p>
-                  <p className="text-sm">
-                    {new Date(user.subscription_end_date).toLocaleString()}
-                  </p>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Account Status
+                  </label>
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        user.is_active
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {user.is_active ? "Active" : "Inactive"}
+                    </span>
+                    {!user.is_super_admin && (
+                      <button
+                        onClick={handleStatusChange}
+                        disabled={loading}
+                        className="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition"
+                      >
+                        {user.is_active ? "Deactivate" : "Activate"}
+                      </button>
+                    )}
+                  </div>
+                  {user.is_super_admin && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Super Admin status cannot be changed
+                    </p>
+                  )}
                 </div>
-              )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    KYC Status
+                  </label>
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        user.kyc_verified
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
+                      }`}
+                    >
+                      {user.kyc_verified ? "Verified" : "Pending"}
+                    </span>
+                    {!user.kyc_verified && (
+                      <button
+                        onClick={handleKycVerification}
+                        disabled={loading}
+                        className="px-3 py-1 text-sm bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition"
+                      >
+                        Verify KYC
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    User Role
+                  </label>
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        user.is_super_admin
+                          ? "bg-red-100 text-red-800"
+                          : user.is_admin
+                          ? "bg-purple-100 text-purple-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
+                    >
+                      {user.is_super_admin
+                        ? "SA"
+                        : user.role?.display_name ||
+                          (user.is_admin ? "Administrator" : "User")}
+                    </span>
+                    {!user.is_super_admin && (
+                      <button
+                        onClick={handleAdminStatusChange}
+                        disabled={loading}
+                        className="px-3 py-1 text-sm bg-purple-500 text-white rounded-md hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 transition"
+                      >
+                        {user.is_admin ? "Remove Admin" : "Make Admin"}
+                      </button>
+                    )}
+                  </div>
+                  {user.is_super_admin && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Super Admin privileges cannot be modified
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-medium text-gray-900">
+                      User Permissions
+                    </h3>
+                    <Link
+                      href={`/users/${user.id}/permissions`}
+                      className="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
+                    >
+                      <svg
+                        className="mr-2 h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                        />
+                      </svg>
+                      Manage Permissions
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Last Updated
+                      </label>
+                      <p className="text-sm text-gray-900">
+                        {new Date(user.updated_at).toLocaleString()}
+                      </p>
+                    </div>
+
+                    {user.subscription_end_date && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Subscription Ends
+                        </label>
+                        <p className="text-sm text-gray-900">
+                          {new Date(
+                            user.subscription_end_date
+                          ).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium text-gray-900">
+                        Password Management
+                      </h3>
+                      <button
+                        onClick={() =>
+                          setShowPasswordSection(!showPasswordSection)
+                        }
+                        className="px-3 py-1 text-sm bg-orange-500 text-white rounded-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition"
+                      >
+                        {showPasswordSection ? "Cancel" : "Change Password"}
+                      </button>
+                    </div>
+
+                    {showPasswordSection && (
+                      <form
+                        onSubmit={handlePasswordChange}
+                        className="space-y-4"
+                      >
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            New Password
+                          </label>
+                          <input
+                            type="password"
+                            name="new_password"
+                            value={passwordData.new_password}
+                            onChange={handlePasswordInputChange}
+                            required
+                            minLength={6}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 bg-white"
+                            placeholder="Enter new password"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Confirm Password
+                          </label>
+                          <input
+                            type="password"
+                            name="confirm_password"
+                            value={passwordData.confirm_password}
+                            onChange={handlePasswordInputChange}
+                            required
+                            minLength={6}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 bg-white"
+                            placeholder="Confirm new password"
+                          />
+                        </div>
+                        <div className="flex space-x-3">
+                          <button
+                            type="submit"
+                            disabled={loading}
+                            className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition"
+                          >
+                            {loading ? "Updating..." : "Update Password"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowPasswordSection(false);
+                              setPasswordData({
+                                new_password: "",
+                                confirm_password: "",
+                              });
+                            }}
+                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                </div>
+
+                {!user.is_super_admin && (
+                  <div className="pt-4 border-t border-gray-200">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-medium text-gray-900">
+                          Danger Zone
+                        </h3>
+                      </div>
+                      <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-sm font-medium text-red-800">
+                              Delete User Account
+                            </h4>
+                            <p className="text-sm text-red-600 mt-1">
+                              This action cannot be undone. All user data will
+                              be permanently deleted.
+                            </p>
+                          </div>
+                          <button
+                            onClick={handleDeleteUser}
+                            disabled={loading}
+                            className="px-4 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition"
+                          >
+                            {loading ? "Deleting..." : "Delete User"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

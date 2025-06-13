@@ -45,6 +45,12 @@ const Navbar: React.FC = () => {
               >
                 News
               </Link>
+              <Link
+                href="/rfq"
+                className="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-800"
+              >
+                RFQ
+              </Link>
             </div>
           </div>
 
@@ -196,6 +202,13 @@ const Navbar: React.FC = () => {
             onClick={() => setIsMenuOpen(false)}
           >
             News
+          </Link>
+          <Link
+            href="/rfq"
+            className="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-gray-700"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            RFQ
           </Link>
         </div>
         {!user ? (

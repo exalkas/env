@@ -4,41 +4,37 @@ import { API_URL } from "../config";
 export interface Asset {
   id: number;
   name: string;
-  type: string;
-  description: string;
-  total_supply: number;
-  available_supply: number;
-  price: number;
+  symbol: string;
+  asset_type: string;
+  description: string | null;
+  current_price: number;
+  last_updated: string;
   is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  owner_id: number | null;
-  metadata: Record<string, any>;
+  requires_kyc: boolean;
 }
 
 export interface AssetCreateData {
   name: string;
-  type: string;
+  symbol: string;
+  asset_type: string;
   description: string;
-  total_supply: number;
-  price: number;
-  metadata?: Record<string, any>;
+  current_price: number;
+  requires_kyc?: boolean;
 }
 
 export interface AssetUpdateData {
   name?: string;
   description?: string;
-  total_supply?: number;
-  price?: number;
+  current_price?: number;
   is_active?: boolean;
-  metadata?: Record<string, any>;
+  requires_kyc?: boolean;
 }
 
 // Asset API Service
 export const AssetApi = {
-  // Get all assets
+  // Get all assets (admin endpoint - includes inactive assets)
   getAssets: async (): Promise<Asset[]> => {
-    const response = await fetchWithAuth(`${API_URL}/assets/`);
+    const response = await fetchWithAuth(`${API_URL}/market/assets/admin/`);
     if (!response.ok) {
       throw new Error("Failed to fetch assets");
     }
@@ -47,7 +43,7 @@ export const AssetApi = {
 
   // Get asset by ID
   getAsset: async (assetId: number): Promise<Asset> => {
-    const response = await fetchWithAuth(`${API_URL}/assets/${assetId}`);
+    const response = await fetchWithAuth(`${API_URL}/market/assets/${assetId}`);
     if (!response.ok) {
       throw new Error("Failed to fetch asset");
     }
@@ -56,7 +52,7 @@ export const AssetApi = {
 
   // Create a new asset
   createAsset: async (assetData: AssetCreateData): Promise<Asset> => {
-    const response = await fetchWithAuth(`${API_URL}/assets/`, {
+    const response = await fetchWithAuth(`${API_URL}/market/assets/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -77,13 +73,16 @@ export const AssetApi = {
     assetId: number,
     assetData: AssetUpdateData
   ): Promise<Asset> => {
-    const response = await fetchWithAuth(`${API_URL}/assets/${assetId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(assetData),
-    });
+    const response = await fetchWithAuth(
+      `${API_URL}/market/assets/${assetId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(assetData),
+      }
+    );
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -95,42 +94,18 @@ export const AssetApi = {
 
   // Activate asset
   activateAsset: async (assetId: number): Promise<Asset> => {
-    const response = await fetchWithAuth(
-      `${API_URL}/assets/${assetId}/activate`,
-      {
-        method: "POST",
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || "Failed to activate asset");
-    }
-
-    return response.json();
+    return AssetApi.updateAsset(assetId, { is_active: true });
   },
 
   // Deactivate asset
   deactivateAsset: async (assetId: number): Promise<Asset> => {
-    const response = await fetchWithAuth(
-      `${API_URL}/assets/${assetId}/deactivate`,
-      {
-        method: "POST",
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || "Failed to deactivate asset");
-    }
-
-    return response.json();
+    return AssetApi.updateAsset(assetId, { is_active: false });
   },
 
   // Get asset transaction history
   getAssetTransactions: async (assetId: number): Promise<any[]> => {
     const response = await fetchWithAuth(
-      `${API_URL}/assets/${assetId}/transactions`
+      `${API_URL}/market/assets/${assetId}/transactions`
     );
     if (!response.ok) {
       throw new Error("Failed to fetch asset transactions");
@@ -141,7 +116,7 @@ export const AssetApi = {
   // Get asset price history
   getAssetPriceHistory: async (assetId: number): Promise<any[]> => {
     const response = await fetchWithAuth(
-      `${API_URL}/assets/${assetId}/price-history`
+      `${API_URL}/market/assets/${assetId}/price-history`
     );
     if (!response.ok) {
       throw new Error("Failed to fetch asset price history");

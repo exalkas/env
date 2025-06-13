@@ -1,31 +1,40 @@
 {
-  "name": "admin-app",
+  "name": "emisify-admin",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3002",
     "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "start": "next start -p 3002",
+    "lint": "next lint",
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "test:e2e": "start-server-and-test dev http://localhost:3002 cypress:run"
   },
   "dependencies": {
+    "@heroicons/react": "^2.0.18",
     "axios": "^1.9.0",
     "jwt-decode": "^4.0.0",
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest",
+    "next": "14.2.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "recharts": "^2.15.3",
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
-    "@types/node": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
-    "autoprefixer": "latest",
-    "eslint": "latest",
-    "eslint-config-next": "latest",
-    "postcss": "latest",
-    "tailwindcss": "latest",
-    "typescript": "latest"
+    "@testing-library/cypress": "^10.0.1",
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/react": "^14.2.1",
+    "@types/node": "^20.14.8",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.19",
+    "cypress": "^14.4.1",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.3",
+    "postcss": "^8.4.38",
+    "start-server-and-test": "^2.0.3",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.5.2"
   }
 }

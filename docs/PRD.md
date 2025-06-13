@@ -103,3 +103,86 @@ A marketplace platform for green energy trading and information that enables use
 2. Main Application (News + Marketplace)
 3. Admin Panel
 4. API Services Layer
+
+## Issue Identified
+
+The user encountered errors when trying to fetch subscriptions in the admin app:
+
+- **React Error #130**: Minified React error in the browser
+- **404 Not Found**: `GET http://localhost:3000/api/subscriptions 404 (Not Found)`
+- **No backend requests**: Backend wasn't receiving any API calls
+
+## Root Cause
+
+The subscription pages were making API calls to the wrong endpoint:
+
+- **Incorrect**: `http://localhost:3000/api/subscriptions` (Next.js frontend)
+- **Correct**: `http://localhost:8000/api/v1/subscriptions` (FastAPI backend)
+
+## Solutions Implemented
+
+### 1. Created SubscriptionApi Utility
+
+- **File**: `admin-app/lib/api/subscriptions.ts`
+- **Purpose**: Centralized API service for subscription operations
+- **Features**:
+  - Uses proper backend URL (`${API_URL}/subscriptions/`)
+  - Implements authentication headers via `fetchWithAuth`
+  - Provides methods for: `getSubscriptions()`, `getSubscription()`, `createSubscription()`, `updateSubscription()`, `deleteSubscription()`
+  - Includes TypeScript interfaces for type safety
+
+### 2. Updated Subscription Pages to Use New API
+
+#### Subscriptions List Page (`admin-app/app/subscriptions/page.tsx`)
+
+- Replaced manual fetch calls with `SubscriptionApi.getSubscriptions()`
+- Updated delete functionality to use `SubscriptionApi.deleteSubscription()`
+- Removed local Subscription interface (now imported from API utility)
+
+#### Create Subscription Page (`admin-app/app/subscriptions/create/page.tsx`)
+
+- Replaced manual fetch with `SubscriptionApi.createSubscription()`
+- **Fixed white-on-white text issue** by adding `text-gray-900 bg-white` to all form inputs
+- Simplified form submission logic
+
+#### Subscription Detail Page (`admin-app/app/subscriptions/[id]/page.tsx`)
+
+- Updated to use `SubscriptionApi.getSubscription()`
+- Removed local interface definition
+
+#### Edit Subscription Page (`admin-app/app/subscriptions/[id]/edit/page.tsx`)
+
+- **Already existed** and properly configured
+- Uses `SubscriptionApi` for both fetching and updating
+- Has proper styling with `text-gray-900 bg-white` for form visibility
+
+## Additional Fixes
+
+### Text Visibility Issue
+
+- **Problem**: White text on white background in create subscription form
+- **Solution**: Added explicit `text-gray-900 bg-white` classes to all input fields and textareas
+
+### Missing Edit Page
+
+- **Status**: Page already existed at correct location
+- **Functionality**: Fully functional with proper API integration and form pre-population
+
+## Technical Improvements
+
+- **Consistent API patterns**: All subscription operations now follow the same pattern as other admin features (UserApi, etc.)
+- **Type safety**: Proper TypeScript interfaces for all subscription data
+- **Error handling**: Centralized error handling in API utility
+- **Authentication**: Proper token-based auth for all API calls
+
+## Result
+
+✅ Subscription management is now fully functional:
+
+- List subscriptions without 404 errors
+- Create subscriptions with visible form inputs
+- View individual subscription details
+- Edit existing subscriptions
+- Delete subscriptions with confirmation
+
+The subscription functionality now properly communicates with the backend API at `localhost:8000` instead of trying to call non-existent frontend API routes.

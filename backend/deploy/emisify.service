@@ -1,0 +1,16 @@
+[Unit]
+Description=Emisify API Service
+After=network.target postgresql.service
+
+[Service]
+User=emisify
+Group=emisify
+WorkingDirectory=/opt/emisify/backend
+Environment="PATH=/opt/emisify/backend/venv/bin"
+EnvironmentFile=/opt/emisify/backend/.env
+ExecStart=/opt/emisify/backend/venv/bin/gunicorn -c gunicorn_conf.py app.main:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target 
