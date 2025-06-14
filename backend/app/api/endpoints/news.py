@@ -68,12 +68,13 @@ def get_news(
         query = query.filter(News.is_featured == True)
     
     if search:
+        search_pattern = f"%{search}%"
         query = query.filter(
             or_(
-                News.title.contains(search),
-                News.summary.contains(search),
-                News.content.contains(search),
-                News.tags.contains(search)
+                News.title.ilike(search_pattern),
+                News.summary.ilike(search_pattern),
+                News.content.ilike(search_pattern),
+                News.tags.ilike(search_pattern)
             )
         )
     

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/AuthContext";
 import Navbar from "@/components/Navbar";
@@ -10,19 +10,42 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
   const { login, error: authError, user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const redirectPath = searchParams?.get("redirect");
+  const planParam = searchParams?.get("plan");
+  const registered = searchParams?.get("registered");
+
+  // Show registration success message
+  useEffect(() => {
+    if (registered === "true") {
+      setSuccessMessage(
+        "Account created successfully! Please log in to continue."
+      );
+    }
+  }, [registered]);
 
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      router.push("/markets");
+      if (redirectPath && planParam) {
+        router.push(`${redirectPath}?plan=${planParam}`);
+      } else if (redirectPath) {
+        router.push(redirectPath);
+      } else {
+        router.push("/dashboard");
+      }
     }
-  }, [user, router]);
+  }, [user, router, redirectPath, planParam]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
+    setSuccessMessage("");
 
     if (!email || !password) {
       setFormError("Please enter both email and password");
@@ -32,7 +55,14 @@ export default function LoginPage() {
     const success = await login(email, password);
 
     if (success) {
-      router.push("/markets");
+      // Handle redirect after successful login
+      if (redirectPath && planParam) {
+        router.push(`${redirectPath}?plan=${planParam}`);
+      } else if (redirectPath) {
+        router.push(redirectPath);
+      } else {
+        router.push("/dashboard");
+      }
     }
   };
 
@@ -68,7 +98,33 @@ export default function LoginPage() {
                 create a new account
               </Link>
             </p>
+            {planParam && (
+              <p className="mt-2 text-center text-sm text-blue-600">
+                Log in to continue with your plan selection
+              </p>
+            )}
           </div>
+
+          {successMessage && (
+            <div className="bg-green-50 border-l-4 border-green-500 p-4">
+              <div className="flex">
+                <svg
+                  className="h-5 w-5 text-green-400 mr-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <p className="text-green-700">{successMessage}</p>
+              </div>
+            </div>
+          )}
 
           {(formError || authError) && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4">

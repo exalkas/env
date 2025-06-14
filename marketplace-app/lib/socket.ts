@@ -1,10 +1,10 @@
-import { io, Socket } from "socket.io-client";
 import { getAuthHeader } from "./auth";
 
-let socket: Socket | null = null;
+let socket: WebSocket | null = null;
+let eventListeners: { [key: string]: ((data: any) => void)[] } = {};
 
-// Connection URL
-const SOCKET_URL = "http://localhost:8000";
+// Connection URL - using WebSocket instead of Socket.io
+const SOCKET_URL = "ws://localhost:8000/ws";
 
 // Market data event types
 export enum MarketDataEvents {
@@ -14,27 +14,43 @@ export enum MarketDataEvents {
   ORDER_BOOK_UPDATE = "order_book_update",
 }
 
+// Generate a random client ID
+const generateClientId = (): number => {
+  return Math.floor(Math.random() * 1000000);
+};
+
 // Initialize the socket connection
-export const initializeSocket = (): Socket => {
-  if (!socket) {
-    const authHeader = getAuthHeader();
+export const initializeSocket = (): WebSocket => {
+  if (!socket || socket.readyState === WebSocket.CLOSED) {
+    const clientId = generateClientId();
+    const wsUrl = `${SOCKET_URL}/${clientId}`;
 
-    socket = io(SOCKET_URL, {
-      autoConnect: true,
-      extraHeaders: authHeader || {},
-    });
+    socket = new WebSocket(wsUrl);
 
-    socket.on("connect", () => {
-      console.log("Socket connected");
-    });
+    socket.onopen = () => {
+      console.log("WebSocket connected");
+    };
 
-    socket.on("disconnect", () => {
-      console.log("Socket disconnected");
-    });
+    socket.onclose = () => {
+      console.log("WebSocket disconnected");
+    };
 
-    socket.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
-    });
+    socket.onerror = (error) => {
+      console.error("WebSocket connection error:", error);
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const eventType = data.type || data.event;
+
+        if (eventType && eventListeners[eventType]) {
+          eventListeners[eventType].forEach((callback) => callback(data));
+        }
+      } catch (error) {
+        console.error("Error parsing WebSocket message:", error);
+      }
+    };
   }
 
   return socket;
@@ -43,34 +59,39 @@ export const initializeSocket = (): Socket => {
 // Close the socket connection
 export const closeSocket = (): void => {
   if (socket) {
-    socket.disconnect();
+    socket.close();
     socket = null;
+  }
+};
+
+// Send a message through WebSocket
+const sendMessage = (message: any): void => {
+  const ws = initializeSocket();
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(message));
+  } else {
+    console.warn("WebSocket is not open. Message not sent:", message);
   }
 };
 
 // Subscribe to market data updates for specific assets
 export const subscribeToAsset = (assetId: string): void => {
-  const socket = initializeSocket();
-  socket.emit("subscribe_asset", { asset_id: assetId });
+  sendMessage({ action: "subscribe_asset", asset_id: assetId });
 };
 
 // Unsubscribe from market data updates for specific assets
 export const unsubscribeFromAsset = (assetId: string): void => {
-  if (socket) {
-    socket.emit("unsubscribe_asset", { asset_id: assetId });
-  }
+  sendMessage({ action: "unsubscribe_asset", asset_id: assetId });
 };
 
 // Subscribe to all market data updates
 export const subscribeToMarket = (): void => {
-  const socket = initializeSocket();
-  socket.emit("subscribe_market");
+  sendMessage({ action: "subscribe_market" });
 };
 
 // Subscribe to user's own order updates
 export const subscribeToUserOrders = (): void => {
-  const socket = initializeSocket();
-  socket.emit("subscribe_user_orders");
+  sendMessage({ action: "subscribe_user_orders" });
 };
 
 // Add a listener for a specific event
@@ -78,8 +99,13 @@ export const addSocketListener = (
   event: string,
   callback: (data: any) => void
 ): void => {
-  const socket = initializeSocket();
-  socket.on(event, callback);
+  if (!eventListeners[event]) {
+    eventListeners[event] = [];
+  }
+  eventListeners[event].push(callback);
+
+  // Initialize socket to ensure connection
+  initializeSocket();
 };
 
 // Remove a listener for a specific event
@@ -87,13 +113,16 @@ export const removeSocketListener = (
   event: string,
   callback: (data: any) => void
 ): void => {
-  if (socket) {
-    socket.off(event, callback);
+  if (eventListeners[event]) {
+    eventListeners[event] = eventListeners[event].filter(
+      (cb) => cb !== callback
+    );
   }
 };
 
 // Handle reconnection after authentication
 export const reconnectWithAuth = (): void => {
   closeSocket();
+  eventListeners = {}; // Clear all listeners
   initializeSocket();
 };

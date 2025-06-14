@@ -11,6 +11,17 @@ from app.db.session import get_db
 
 router = APIRouter()
 
+@router.get("/public", response_model=List[schemas.Subscription])
+def read_public_subscriptions(
+    db: Session = Depends(get_db),
+) -> Any:
+    """
+    Retrieve active subscription plans for public viewing.
+    No authentication required.
+    """
+    subscriptions = crud_subscription.subscription.get_active(db)
+    return subscriptions
+
 @router.get("/", response_model=List[schemas.Subscription])
 def read_subscriptions(
     db: Session = Depends(get_db),

@@ -20,29 +20,31 @@ export const login = async (
   password: string
 ): Promise<User | null> => {
   try {
-    const response = await fetch("http://localhost:8000/api/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        username: email, // FastAPI OAuth2 uses 'username' for the email
-        password,
-      }),
-    });
+    const response = await fetch(
+      "http://localhost:8000/api/v1/auth/user-login",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          username: email, // FastAPI OAuth2 uses 'username' for the email
+          password,
+        }),
+      }
+    );
 
     if (!response.ok) {
       throw new Error("Login failed");
     }
 
-    const data: AuthToken = await response.json();
+    const data = await response.json();
 
     // Store the token in localStorage
     localStorage.setItem("token", data.access_token);
 
-    // Get user information from token
-    const user = getUserFromToken();
-    return user;
+    // Return the user data from the response
+    return data.user;
   } catch (error) {
     console.error("Login error:", error);
     return null;

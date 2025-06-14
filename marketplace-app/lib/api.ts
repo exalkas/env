@@ -20,7 +20,7 @@ api.interceptors.request.use((config) => {
 // User API
 export const fetchUserData = async () => {
   try {
-    const response = await api.get("/users/me");
+    const response = await api.get("/v1/users/me");
     return response.data;
   } catch (error) {
     console.error("Error fetching user data:", error);
@@ -31,7 +31,9 @@ export const fetchUserData = async () => {
 // Assets API
 export const fetchAssets = async (assetType?: string) => {
   try {
-    const url = assetType ? `/assets?type=${assetType}` : "/assets";
+    const url = assetType
+      ? `/v1/market/assets?type=${assetType}`
+      : "/v1/market/assets";
     const response = await api.get(url);
     return response.data;
   } catch (error) {
@@ -42,7 +44,7 @@ export const fetchAssets = async (assetType?: string) => {
 
 export const fetchAssetById = async (assetId: string) => {
   try {
-    const response = await api.get(`/assets/${assetId}`);
+    const response = await api.get(`/v1/market/assets/${assetId}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching asset ${assetId}:`, error);
@@ -53,7 +55,9 @@ export const fetchAssetById = async (assetId: string) => {
 // Market Data API
 export const fetchMarketData = async (assetType?: string) => {
   try {
-    const url = assetType ? `/market/data?type=${assetType}` : "/market/data";
+    const url = assetType
+      ? `/v1/market/assets?type=${assetType}`
+      : "/v1/market/assets";
     const response = await api.get(url);
     return response.data;
   } catch (error) {
@@ -67,9 +71,8 @@ export const fetchAssetPriceHistory = async (
   timeframe: string = "1d"
 ) => {
   try {
-    const response = await api.get(
-      `/market/history/${assetId}?timeframe=${timeframe}`
-    );
+    // Note: This endpoint may not exist yet, returning mock data for now
+    const response = await api.get(`/v1/market/assets/${assetId}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching price history for ${assetId}:`, error);
@@ -84,10 +87,11 @@ export const placeBuyOrder = async (
   price: number
 ) => {
   try {
-    const response = await api.post("/trading/buy", {
+    const response = await api.post("/v1/market/orders", {
       asset_id: assetId,
       quantity,
       price,
+      order_type: "BUY",
     });
     return response.data;
   } catch (error) {
@@ -102,10 +106,11 @@ export const placeSellOrder = async (
   price: number
 ) => {
   try {
-    const response = await api.post("/trading/sell", {
+    const response = await api.post("/v1/market/orders", {
       asset_id: assetId,
       quantity,
       price,
+      order_type: "SELL",
     });
     return response.data;
   } catch (error) {
@@ -116,7 +121,9 @@ export const placeSellOrder = async (
 
 export const fetchUserOrders = async (status?: string) => {
   try {
-    const url = status ? `/trading/orders?status=${status}` : "/trading/orders";
+    const url = status
+      ? `/v1/market/orders?status=${status}`
+      : "/v1/market/orders";
     const response = await api.get(url);
     return response.data;
   } catch (error) {
@@ -127,7 +134,7 @@ export const fetchUserOrders = async (status?: string) => {
 
 export const fetchUserTrades = async () => {
   try {
-    const response = await api.get("/trading/trades");
+    const response = await api.get("/v1/market/transactions");
     return response.data;
   } catch (error) {
     console.error("Error fetching user trades:", error);
@@ -137,7 +144,8 @@ export const fetchUserTrades = async () => {
 
 export const fetchUserPortfolio = async () => {
   try {
-    const response = await api.get("/trading/portfolio");
+    // Note: This endpoint may not exist yet, using orders for now
+    const response = await api.get("/v1/market/orders");
     return response.data;
   } catch (error) {
     console.error("Error fetching user portfolio:", error);
@@ -148,7 +156,7 @@ export const fetchUserPortfolio = async () => {
 // Watchlist API
 export const fetchUserWatchlist = async () => {
   try {
-    const response = await api.get("/users/watchlist");
+    const response = await api.get("/v1/users/watchlist");
     return response.data;
   } catch (error) {
     console.error("Error fetching user watchlist:", error);
@@ -158,7 +166,9 @@ export const fetchUserWatchlist = async () => {
 
 export const addToWatchlist = async (assetId: string) => {
   try {
-    const response = await api.post("/users/watchlist", { asset_id: assetId });
+    const response = await api.post("/v1/users/watchlist", {
+      asset_id: assetId,
+    });
     return response.data;
   } catch (error) {
     console.error("Error adding to watchlist:", error);
@@ -168,10 +178,21 @@ export const addToWatchlist = async (assetId: string) => {
 
 export const removeFromWatchlist = async (assetId: string) => {
   try {
-    const response = await api.delete(`/users/watchlist/${assetId}`);
+    const response = await api.delete(`/v1/users/watchlist/${assetId}`);
     return response.data;
   } catch (error) {
     console.error("Error removing from watchlist:", error);
+    throw error;
+  }
+};
+
+// Subscriptions API
+export const fetchPublicSubscriptions = async () => {
+  try {
+    const response = await api.get("/v1/subscriptions/public");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching subscription plans:", error);
     throw error;
   }
 };

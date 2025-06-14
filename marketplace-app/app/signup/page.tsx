@@ -1,10 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/AuthContext";
 import Navbar from "@/components/Navbar";
+import { fetchPublicSubscriptions } from "@/lib/api";
+
+interface Subscription {
+  id: number;
+  name: string;
+  display_name: string;
+  description: string;
+  price: number;
+  duration_days: number;
+  features: string;
+  max_concurrent_users: number;
+  is_active: boolean;
+}
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -12,40 +25,97 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [formError, setFormError] = useState("");
+  const [selectedPlan, setSelectedPlan] = useState<Subscription | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
   const { user, loading, error: authError } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const planParam = searchParams?.get("plan");
+
+  // Load plan information if plan parameter is provided
+  useEffect(() => {
+    const loadPlanInfo = async () => {
+      if (planParam) {
+        try {
+          const plans = await fetchPublicSubscriptions();
+          const plan = plans.find((p: Subscription) => p.name === planParam);
+          if (plan) setSelectedPlan(plan);
+        } catch (error) {
+          console.error("Error loading plan info:", error);
+        }
+      }
+    };
+
+    loadPlanInfo();
+  }, [planParam]);
 
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      router.push("/markets");
+      router.push("/");
     }
   }, [user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
+    setSubmitting(true);
 
     if (!email || !password || !fullName) {
       setFormError("Please fill out all required fields");
+      setSubmitting(false);
       return;
     }
 
     if (password !== confirmPassword) {
       setFormError("Passwords do not match");
+      setSubmitting(false);
       return;
     }
 
     if (password.length < 8) {
       setFormError("Password must be at least 8 characters long");
+      setSubmitting(false);
       return;
     }
 
     try {
-      // In a real app, you would call your signUp method from auth context here
-      router.push("/login?registered=true");
+      // Call the signup API
+      const response = await fetch("http://localhost:8000/api/v1/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          full_name: fullName,
+        }),
+      });
+
+      if (response.ok) {
+        // Show success message and redirect to login or payment
+        if (selectedPlan && selectedPlan.name !== "trial") {
+          // If they selected a paid plan, redirect to login with plan selection
+          router.push(
+            `/login?redirect=/upgrade&plan=${selectedPlan.name}&registered=true`
+          );
+        } else {
+          // If trial or no plan selected, just redirect to login
+          router.push("/login?registered=true");
+        }
+      } else {
+        const error = await response.json();
+        setFormError(
+          error.detail || "Failed to create account. Please try again."
+        );
+      }
     } catch (error) {
+      console.error("Signup error:", error);
       setFormError("Failed to create account. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -82,6 +152,39 @@ export default function SignupPage() {
               </Link>
             </p>
           </div>
+
+          {/* Selected Plan Display */}
+          {selectedPlan && (
+            <div className="bg-green-50 border border-green-200 rounded-md p-4">
+              <div className="flex items-center">
+                <svg
+                  className="h-5 w-5 text-green-400 mr-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <div>
+                  <h3 className="text-sm font-medium text-green-800">
+                    Selected Plan: {selectedPlan.display_name}
+                  </h3>
+                  <div className="mt-1 text-sm text-green-700">
+                    <p>
+                      €{parseFloat(selectedPlan.price.toString()).toFixed(0)}{" "}
+                      for {selectedPlan.duration_days} days
+                      {selectedPlan.name === "trial" ? " - Free Trial" : ""}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {(formError || authError) && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4">
@@ -181,12 +284,30 @@ export default function SignupPage() {
             <div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={submitting}
                 className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
               >
-                {loading ? "Creating account..." : "Create account"}
+                {submitting
+                  ? "Creating account..."
+                  : selectedPlan
+                  ? `Create account & Get ${selectedPlan.display_name}`
+                  : "Create account"}
               </button>
             </div>
+
+            {!selectedPlan && (
+              <div className="text-center">
+                <p className="text-sm text-gray-600">
+                  Haven't chosen a plan yet?{" "}
+                  <Link
+                    href="/plans"
+                    className="font-medium text-green-600 hover:text-green-500"
+                  >
+                    View plans
+                  </Link>
+                </p>
+              </div>
+            )}
           </form>
         </div>
       </main>

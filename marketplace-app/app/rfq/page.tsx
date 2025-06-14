@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "../lib/context/AuthContext";
+import { useAuth } from "@/lib/AuthContext";
 import { useRouter } from "next/navigation";
+import { getAuthHeader } from "@/lib/auth";
 
 interface Asset {
   id: number;
@@ -54,7 +55,7 @@ export default function RFQPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selectedRfq, setSelectedRfq] = useState<RFQ | null>(null);
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
 
   const [formData, setFormData] = useState<RFQFormData>({
@@ -91,9 +92,10 @@ export default function RFQPage() {
 
   const fetchRFQs = async () => {
     try {
+      const authHeader = getAuthHeader();
       const response = await fetch("http://localhost:8000/api/v1/rfq/", {
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...(authHeader && { Authorization: authHeader.Authorization }),
         },
       });
 
@@ -117,11 +119,12 @@ export default function RFQPage() {
     }
 
     try {
+      const authHeader = getAuthHeader();
       const response = await fetch("http://localhost:8000/api/v1/rfq/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          ...(authHeader && { Authorization: authHeader.Authorization }),
         },
         body: JSON.stringify({
           ...formData,
@@ -154,12 +157,13 @@ export default function RFQPage() {
     if (!confirm("Are you sure you want to accept this quote?")) return;
 
     try {
+      const authHeader = getAuthHeader();
       const response = await fetch(
         `http://localhost:8000/api/v1/rfq/${rfqId}/accept`,
         {
           method: "PATCH",
           headers: {
-            Authorization: `Bearer ${token}`,
+            ...(authHeader && { Authorization: authHeader.Authorization }),
           },
         }
       );
@@ -177,12 +181,13 @@ export default function RFQPage() {
     if (!confirm("Are you sure you want to reject this quote?")) return;
 
     try {
+      const authHeader = getAuthHeader();
       const response = await fetch(
         `http://localhost:8000/api/v1/rfq/${rfqId}/reject`,
         {
           method: "PATCH",
           headers: {
-            Authorization: `Bearer ${token}`,
+            ...(authHeader && { Authorization: authHeader.Authorization }),
           },
         }
       );
@@ -200,12 +205,13 @@ export default function RFQPage() {
     if (!confirm("Are you sure you want to cancel this RFQ?")) return;
 
     try {
+      const authHeader = getAuthHeader();
       const response = await fetch(
         `http://localhost:8000/api/v1/rfq/${rfqId}`,
         {
           method: "DELETE",
           headers: {
-            Authorization: `Bearer ${token}`,
+            ...(authHeader && { Authorization: authHeader.Authorization }),
           },
         }
       );

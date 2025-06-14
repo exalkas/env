@@ -75,6 +75,7 @@ interface MarketContextType {
   loading: boolean;
   error: string | null;
   refreshMarketData: () => Promise<void>;
+  initializeMarketData: () => Promise<void>;
 }
 
 // Create context
@@ -92,63 +93,68 @@ export const MarketProvider: React.FC<{ children: ReactNode }> = ({
     {}
   );
   const [orderBooks, setOrderBooks] = useState<Record<string, OrderBook>>({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize market data on mount
+  // Initialize market data only when requested
+  const initializeMarketData = async () => {
+    if (isInitialized) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Fetch initial market data
+      const marketData = await fetchMarketData();
+
+      // Update state with initial data
+      if (marketData.prices) {
+        const pricesMap: Record<string, AssetPrice> = {};
+        marketData.prices.forEach((price: AssetPrice) => {
+          pricesMap[price.id] = price;
+        });
+        setAssetPrices(pricesMap);
+      }
+
+      if (marketData.news) {
+        setLatestNews(marketData.news);
+      }
+
+      if (marketData.trades) {
+        setRecentTrades(marketData.trades);
+      }
+
+      if (marketData.orderBooks) {
+        setOrderBooks(marketData.orderBooks);
+      }
+
+      // Initialize socket connection
+      initializeSocket();
+
+      // Subscribe to market updates
+      subscribeToMarket();
+
+      // Set up socket listeners for real-time updates
+      setupSocketListeners();
+
+      setIsInitialized(true);
+    } catch (err) {
+      console.error("Error initializing market data:", err);
+      setError("Failed to load market data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Clean up on unmount
   useEffect(() => {
-    const initializeMarketData = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        // Fetch initial market data
-        const marketData = await fetchMarketData();
-
-        // Update state with initial data
-        if (marketData.prices) {
-          const pricesMap: Record<string, AssetPrice> = {};
-          marketData.prices.forEach((price: AssetPrice) => {
-            pricesMap[price.id] = price;
-          });
-          setAssetPrices(pricesMap);
-        }
-
-        if (marketData.news) {
-          setLatestNews(marketData.news);
-        }
-
-        if (marketData.trades) {
-          setRecentTrades(marketData.trades);
-        }
-
-        if (marketData.orderBooks) {
-          setOrderBooks(marketData.orderBooks);
-        }
-
-        // Initialize socket connection
-        initializeSocket();
-
-        // Subscribe to market updates
-        subscribeToMarket();
-      } catch (err) {
-        console.error("Error initializing market data:", err);
-        setError("Failed to load market data");
-      } finally {
-        setLoading(false);
+    return () => {
+      if (isInitialized) {
+        cleanupSocketListeners();
       }
     };
-
-    initializeMarketData();
-
-    // Set up socket listeners for real-time updates
-    setupSocketListeners();
-
-    // Clean up on unmount
-    return () => {
-      cleanupSocketListeners();
-    };
-  }, []);
+  }, [isInitialized]);
 
   // Set up socket listeners for real-time data
   const setupSocketListeners = () => {
@@ -238,6 +244,7 @@ export const MarketProvider: React.FC<{ children: ReactNode }> = ({
     loading,
     error,
     refreshMarketData,
+    initializeMarketData,
   };
 
   return (
@@ -251,5 +258,11 @@ export const useMarket = (): MarketContextType => {
   if (context === undefined) {
     throw new Error("useMarket must be used within a MarketProvider");
   }
+
+  // Initialize market data when the hook is first used
+  useEffect(() => {
+    context.initializeMarketData();
+  }, []);
+
   return context;
 };
