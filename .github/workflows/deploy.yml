@@ -1,0 +1,105 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy with Blue-Green
+        run: |
+          # Create unique deployment directory
+          DEPLOY_DIR="maritime-deploy-$(date +%Y%m%d-%H%M%S)"
+
+          # Upload code to server
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='venv' \
+            --exclude='__pycache__' \
+            --exclude='.env' \
+            --exclude='*.pyc' \
+            --exclude='.pytest_cache' \
+            ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/$DEPLOY_DIR/
+
+          # Execute blue-green deployment
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << EOF
+            set -e
+            
+            echo "🚀 Starting blue-green deployment..."
+            cd /tmp/$DEPLOY_DIR/backend/deploy
+            
+            # Make scripts executable
+            chmod +x *.sh
+            
+            # Deploy to inactive environment
+            echo "📦 Deploying to inactive environment..."
+            sudo ./blue_green_deployment.sh deploy /tmp/$DEPLOY_DIR
+            
+            # Health check before switch
+            echo "🔍 Performing health check..."
+            sleep 10
+            
+            # Determine inactive port for health check
+            INACTIVE_ENV=\$(sudo ./blue_green_deployment.sh status | grep "Inactive Environment" | awk '{print \$3}')
+            if [ "\$INACTIVE_ENV" = "green" ]; then
+              INACTIVE_PORT=8001
+            else
+              INACTIVE_PORT=8000
+            fi
+            
+            # Health check
+            if curl -f -s http://localhost:\$INACTIVE_PORT/health > /dev/null; then
+              echo "✅ Health check passed, switching traffic..."
+              sudo ./blue_green_deployment.sh switch
+              echo "🎉 Deployment successful!"
+            else
+              echo "❌ Health check failed, aborting deployment"
+              exit 1
+            fi
+            
+            # Cleanup
+            cd /
+            rm -rf /tmp/$DEPLOY_DIR
+          EOF
+
+      - name: Verify deployment
+        run: |
+          # Final verification
+          sleep 5
+          if curl -f -s http://${{ secrets.SERVER_HOST }}/health > /dev/null; then
+            echo "✅ Final verification passed!"
+          else
+            echo "❌ Final verification failed!"
+            exit 1
+          fi
+
+      - name: Notify success
+        if: success()
+        run: |
+          echo "🎉 Deployment completed successfully!"
+          echo "🔗 Application: http://${{ secrets.SERVER_HOST }}"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "🔄 Attempting automatic rollback..."
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            cd /opt/maritime-trading/backend/deploy 2>/dev/null || exit 0
+            sudo ./blue_green_deployment.sh rollback || echo "Rollback failed or not needed"
+          EOF

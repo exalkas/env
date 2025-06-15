@@ -1,0 +1,290 @@
+name: Test and Deploy
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov
+
+      - name: Create test environment file
+        run: |
+          cd backend
+          cat > .env.test << EOF
+          POSTGRES_SERVER=localhost
+          POSTGRES_USER=test_user
+          POSTGRES_PASSWORD=test_password
+          POSTGRES_DB=test_db
+          POSTGRES_PORT=5432
+          SECRET_KEY=test_secret_key_for_testing_only
+          ALGORITHM=HS256
+          ACCESS_TOKEN_EXPIRE_MINUTES=60
+          EOF
+
+      - name: Run database migrations
+        run: |
+          cd backend
+          export $(cat .env.test | xargs)
+          python -m alembic upgrade head
+
+      - name: Run tests
+        run: |
+          cd backend
+          export $(cat .env.test | xargs)
+          pytest tests/ -v --cov=. --cov-report=xml
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./backend/coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run security scan
+        uses: pypa/gh-action-pip-audit@v1.0.8
+        with:
+          inputs: backend/requirements.txt
+
+  deploy:
+    needs: [test, security-scan]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Bump version
+        id: version
+        run: |
+          cd backend
+          python deploy/version_management.py bump patch
+          NEW_VERSION=$(cat VERSION)
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+          # Commit version bump
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add VERSION
+          git commit -m "Bump version to $NEW_VERSION [skip ci]" || exit 0
+
+      - name: Push version bump
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
+
+      - name: Create Git tag
+        run: |
+          git tag v${{ steps.version.outputs.version }}
+          git push origin v${{ steps.version.outputs.version }}
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Pre-deployment checks
+        run: |
+          echo "🔍 Running pre-deployment checks..."
+
+          # Check current production health
+          if ! curl -f -s http://${{ secrets.SERVER_HOST }}/health > /dev/null; then
+            echo "⚠️ Warning: Current production appears unhealthy"
+          fi
+
+          # Check server disk space
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            DISK_USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
+            if [ $DISK_USAGE -gt 85 ]; then
+              echo "❌ Error: Disk usage is ${DISK_USAGE}%, deployment aborted"
+              exit 1
+            fi
+            echo "✅ Disk usage: ${DISK_USAGE}%"
+          EOF
+
+      - name: Deploy with Blue-Green
+        run: |
+          # Create unique deployment directory
+          DEPLOY_DIR="maritime-deploy-$(date +%Y%m%d-%H%M%S)"
+
+          echo "📦 Uploading code to server..."
+          # Upload code to server
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='venv' \
+            --exclude='__pycache__' \
+            --exclude='.env' \
+            --exclude='*.pyc' \
+            --exclude='.pytest_cache' \
+            --exclude='coverage.xml' \
+            --exclude='.coverage' \
+            ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/$DEPLOY_DIR/
+
+          echo "🚀 Executing blue-green deployment..."
+          # Execute blue-green deployment
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << EOF
+            set -e
+            
+            echo "🔧 Preparing deployment..."
+            cd /tmp/$DEPLOY_DIR/backend/deploy
+            chmod +x *.sh
+            
+            # Update changelog
+            python version_management.py changelog "Automated deployment v${{ steps.version.outputs.version }}"
+            
+            echo "📦 Deploying to inactive environment..."
+            sudo ./blue_green_deployment.sh deploy /tmp/$DEPLOY_DIR
+            
+            echo "⏳ Waiting for service to stabilize..."
+            sleep 15
+            
+            # Determine inactive port for health check
+            INACTIVE_ENV=\$(sudo ./blue_green_deployment.sh status | grep "Inactive Environment" | awk '{print \$3}')
+            if [ "\$INACTIVE_ENV" = "green" ]; then
+              INACTIVE_PORT=8001
+            else
+              INACTIVE_PORT=8000
+            fi
+            
+            echo "🔍 Running comprehensive health checks..."
+            # Multiple health checks
+            for i in {1..5}; do
+              if curl -f -s http://localhost:\$INACTIVE_PORT/health > /dev/null; then
+                echo "✅ Health check \$i/5 passed"
+              else
+                echo "❌ Health check \$i/5 failed"
+                exit 1
+              fi
+              sleep 2
+            done
+            
+            echo "🔄 Switching traffic..."
+            sudo ./blue_green_deployment.sh switch
+            
+            echo "🎉 Deployment successful!"
+            
+            # Cleanup
+            cd /
+            rm -rf /tmp/$DEPLOY_DIR
+          EOF
+
+      - name: Post-deployment verification
+        run: |
+          echo "🔍 Running post-deployment verification..."
+          sleep 10
+
+          # Comprehensive smoke tests
+          TESTS=(
+            "/health"
+            "/docs"
+          )
+
+          for endpoint in "${TESTS[@]}"; do
+            if curl -f -s "http://${{ secrets.SERVER_HOST }}$endpoint" > /dev/null; then
+              echo "✅ $endpoint - OK"
+            else
+              echo "❌ $endpoint - FAILED"
+              exit 1
+            fi
+          done
+
+          echo "✅ All post-deployment tests passed!"
+
+      - name: Monitor for issues
+        run: |
+          echo "👀 Monitoring deployment for 30 seconds..."
+          sleep 30
+
+          # Check for recent errors in logs
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            ERROR_COUNT=$(sudo journalctl -u maritime-trading --since "2 minutes ago" | grep -i error | wc -l)
+            if [ $ERROR_COUNT -gt 0 ]; then
+              echo "⚠️ Warning: $ERROR_COUNT errors found in recent logs"
+              sudo journalctl -u maritime-trading --since "2 minutes ago" | grep -i error
+            else
+              echo "✅ No errors found in recent logs"
+            fi
+          EOF
+
+      - name: Notify success
+        if: success()
+        run: |
+          echo "🎉 Deployment v${{ steps.version.outputs.version }} completed successfully!"
+          echo "🔗 Application: http://${{ secrets.SERVER_HOST }}"
+          echo "📊 Version: ${{ steps.version.outputs.version }}"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "🚨 Deployment failed, attempting automatic rollback..."
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            cd /opt/maritime-trading/backend/deploy 2>/dev/null || exit 0
+            if sudo ./blue_green_deployment.sh rollback; then
+              echo "✅ Automatic rollback completed"
+            else
+              echo "❌ Automatic rollback failed - manual intervention required"
+            fi
+          EOF
+
+          echo "🔔 Please check the server status manually"
+          exit 1
