@@ -24,6 +24,7 @@ class User(Base):
     role = relationship("Role", back_populates="users")
     orders = relationship("Order", back_populates="user")
     user_permissions = relationship("UserPermission", foreign_keys="UserPermission.user_id", back_populates="user")
+    created_prompts = relationship("PromptTemplate", back_populates="creator")
     
     @property
     def is_admin(self):

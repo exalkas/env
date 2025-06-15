@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     RATE_LIMIT_PER_MINUTE: int = 60
 
+    # OpenAI Settings
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o"
+
     # Domain Settings
     ADMIN_DOMAIN: str = "admin.emisify.com"
     APP_DOMAIN: str = "app.emisify.com"

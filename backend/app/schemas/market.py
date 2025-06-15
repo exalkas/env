@@ -27,7 +27,7 @@ class Asset(AssetBase):
     is_active: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Order schemas
 class OrderBase(BaseModel):
@@ -52,7 +52,7 @@ class Order(OrderBase):
     updated_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Transaction schemas
 class TransactionBase(BaseModel):
@@ -72,7 +72,7 @@ class Transaction(TransactionBase):
     timestamp: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Extended schemas for relationships
 class AssetWithOrders(Asset):

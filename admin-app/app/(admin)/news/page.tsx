@@ -8,8 +8,10 @@ import {
   TrashIcon,
   CheckIcon,
   XMarkIcon,
+  BoltIcon,
 } from "@heroicons/react/24/outline";
 import { fetchWithAuth } from "../../../lib/utils/auth";
+import NewsAutomation from "../../../components/NewsAutomation";
 
 interface News {
   id: number;
@@ -77,7 +79,9 @@ export default function NewsPage() {
   const [editingNews, setEditingNews] = useState<News | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [viewingNews, setViewingNews] = useState<News | null>(null);
-  const [activeTab, setActiveTab] = useState<"news" | "categories">("news");
+  const [activeTab, setActiveTab] = useState<
+    "news" | "categories" | "automation"
+  >("news");
   const [filter, setFilter] = useState({
     category: "",
     status: "all",
@@ -554,6 +558,17 @@ export default function NewsPage() {
               }`}
             >
               Categories
+            </button>
+            <button
+              onClick={() => setActiveTab("automation")}
+              className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-1 ${
+                activeTab === "automation"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <BoltIcon className="h-4 w-4" />
+              <span>AI Automation</span>
             </button>
           </nav>
         </div>
@@ -1501,6 +1516,9 @@ export default function NewsPage() {
           )}
         </div>
       )}
+
+      {/* AI Automation Tab */}
+      {activeTab === "automation" && <NewsAutomation />}
     </div>
   );
 }

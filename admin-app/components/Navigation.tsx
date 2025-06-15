@@ -14,6 +14,7 @@ import {
   CogIcon,
   ClipboardDocumentListIcon,
   ShieldCheckIcon,
+  DocumentTextIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -33,6 +34,7 @@ const navigation = [
 // Admin and Super admin navigation items
 const adminNavigation = [
   { name: "Permissions", href: "/permissions", icon: ShieldCheckIcon },
+  { name: "Prompts", href: "/prompts", icon: DocumentTextIcon },
 ];
 
 // Super admin only navigation items

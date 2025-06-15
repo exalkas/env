@@ -6,4 +6,5 @@ from app.models.news import News
 from app.models.news_category import NewsCategory
 from app.models.news_category_association import NewsCategoryAssociation
 from app.models.rfq import RFQ
-from app.models.permission import Permission, RolePermission, UserPermission 
+from app.models.permission import Permission, RolePermission, UserPermission
+from app.models.prompt_template import PromptTemplate 
