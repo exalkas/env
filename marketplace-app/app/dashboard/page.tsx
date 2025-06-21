@@ -61,7 +61,8 @@ export default function DashboardPage() {
           Welcome back, {user?.full_name || "Trader"}!
         </h1>
         <p className="text-gray-600 mt-2">
-          Here's what's happening in your green energy trading account today.
+          Here&apos;s what&apos;s happening in your green energy trading account
+          today.
         </p>
       </div>
 
@@ -162,7 +163,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <Link
-            href="/orders"
+            href="/rfq"
             className="text-yellow-500 text-sm mt-4 block hover:text-yellow-700"
           >
             View orders →
@@ -298,7 +299,7 @@ export default function DashboardPage() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
-            href="/rfq"
+            href="/orders"
             className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <div className="p-2 bg-green-100 rounded-lg mr-4">
@@ -317,8 +318,8 @@ export default function DashboardPage() {
               </svg>
             </div>
             <div>
-              <h3 className="font-medium text-gray-900">Request Quote</h3>
-              <p className="text-sm text-gray-600">Get quotes from brokers</p>
+              <h3 className="font-medium text-gray-900">Place Order</h3>
+              <p className="text-sm text-gray-600">Submit trading orders</p>
             </div>
           </Link>
 

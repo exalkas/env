@@ -4,6 +4,7 @@ import React from "react";
 import {
   XMarkIcon,
   ExclamationTriangleIcon,
+  ExclamationCircleIcon,
 } from "@heroicons/react/24/outline";
 
 interface ConfirmationModalProps {
@@ -16,6 +17,7 @@ interface ConfirmationModalProps {
   cancelText?: string;
   confirmButtonColor?: "red" | "green" | "blue" | "yellow";
   isLoading?: boolean;
+  error?: string | null;
 }
 
 export default function ConfirmationModal({
@@ -28,6 +30,7 @@ export default function ConfirmationModal({
   cancelText = "Cancel",
   confirmButtonColor = "red",
   isLoading = false,
+  error = null,
 }: ConfirmationModalProps) {
   if (!isOpen) return null;
 
@@ -80,6 +83,16 @@ export default function ConfirmationModal({
         {/* Content */}
         <div className="p-6">
           <p className="text-gray-700 leading-relaxed">{message}</p>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center">
+                <ExclamationCircleIcon className="h-5 w-5 text-red-500 mr-2" />
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -93,7 +106,7 @@ export default function ConfirmationModal({
           </button>
           <button
             onClick={onConfirm}
-            disabled={isLoading}
+            disabled={isLoading || !!error}
             className={`px-4 py-2 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center ${getConfirmButtonStyles()}`}
           >
             {isLoading && (

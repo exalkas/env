@@ -150,13 +150,13 @@ require_roles_update = require_permission(Permissions.ROLES_UPDATE)
 require_roles_delete = require_permission(Permissions.ROLES_DELETE)
 require_roles_manage = require_permission(Permissions.ROLES_MANAGE)
 
-# RFQ management permissions
-require_rfq_read = require_permission(Permissions.RFQ_READ)
-require_rfq_create = require_permission(Permissions.RFQ_CREATE)
-require_rfq_update = require_permission(Permissions.RFQ_UPDATE)
-require_rfq_delete = require_permission(Permissions.RFQ_DELETE)
-require_rfq_quote = require_permission(Permissions.RFQ_QUOTE)
-require_rfq_manage = require_permission(Permissions.RFQ_MANAGE)
+# Order management permissions
+require_order_read = require_permission(Permissions.ORDER_READ)
+require_order_create = require_permission(Permissions.ORDER_CREATE)
+require_order_update = require_permission(Permissions.ORDER_UPDATE)
+require_order_delete = require_permission(Permissions.ORDER_DELETE)
+require_order_quote = require_permission(Permissions.ORDER_QUOTE)
+require_order_manage = require_permission(Permissions.ORDER_MANAGE)
 
 # Transaction management permissions
 require_transactions_read = require_permission(Permissions.TRANSACTIONS_READ)

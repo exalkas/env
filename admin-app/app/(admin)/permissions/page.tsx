@@ -53,11 +53,11 @@ export default function PermissionsOverviewPage() {
 
   // Group permissions by module
   const groupedPermissions = permissions.reduce((groups, permission) => {
-    const module = permission.module;
-    if (!groups[module]) {
-      groups[module] = [];
+    const moduleName = permission.module;
+    if (!groups[moduleName]) {
+      groups[moduleName] = [];
     }
-    groups[module].push(permission);
+    groups[moduleName].push(permission);
     return groups;
   }, {} as Record<string, Permission[]>);
 
@@ -68,7 +68,7 @@ export default function PermissionsOverviewPage() {
       assets: "bg-purple-100 text-purple-800",
       subscriptions: "bg-yellow-100 text-yellow-800",
       roles: "bg-red-100 text-red-800",
-      rfq: "bg-indigo-100 text-indigo-800",
+      order: "bg-indigo-100 text-indigo-800",
       transactions: "bg-pink-100 text-pink-800",
       analytics: "bg-gray-100 text-gray-800",
       system: "bg-orange-100 text-orange-800",
@@ -420,25 +420,25 @@ export default function PermissionsOverviewPage() {
               <div className="grid grid-cols-1 gap-4">
                 {Object.entries(
                   myPermissions.permissions.reduce((groups, permission) => {
-                    const module = permission.split(".")[0];
-                    if (!groups[module]) {
-                      groups[module] = [];
+                    const moduleName = permission.split(".")[0];
+                    if (!groups[moduleName]) {
+                      groups[moduleName] = [];
                     }
-                    groups[module].push(permission);
+                    groups[moduleName].push(permission);
                     return groups;
                   }, {} as Record<string, string[]>)
-                ).map(([module, modulePermissions]) => (
+                ).map(([moduleName, modulePermissions]) => (
                   <div
-                    key={module}
+                    key={moduleName}
                     className="border border-gray-200 rounded-lg p-4"
                   >
                     <div className="flex items-center mb-3">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getModuleColor(
-                          module
+                          moduleName
                         )}`}
                       >
-                        {module.toUpperCase()}
+                        {moduleName.toUpperCase()}
                       </span>
                       <span className="ml-2 text-sm text-gray-600">
                         {modulePermissions.length} permissions

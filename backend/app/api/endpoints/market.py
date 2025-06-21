@@ -95,9 +95,9 @@ def update_asset(
     return asset
 
 # Order endpoints
-@router.post("/orders/", response_model=schemas.market.Order, status_code=201)
+@router.post("/orders/", response_model=schemas.market.MarketOrder, status_code=201)
 def create_order(
-    order_in: schemas.market.OrderCreate,
+    order_in: schemas.market.MarketOrderCreate,
     db: Session = Depends(deps.get_db),
     current_user: models.User = Depends(deps.get_current_user),
 ):
@@ -124,7 +124,7 @@ def create_order(
         )
     
     # Create the order
-    order = models.market.Order(
+    order = models.market.MarketOrder(
         user_id=current_user.id,
         asset_id=order_in.asset_id,
         order_type=order_in.order_type,
@@ -139,11 +139,11 @@ def create_order(
     # Try to match the order with existing orders
     matched_transaction = match_orders(db, order)
     if matched_transaction:
-        return db.query(models.market.Order).filter(models.market.Order.id == order.id).first()
+        return db.query(models.market.MarketOrder).filter(models.market.MarketOrder.id == order.id).first()
     
     return order
 
-@router.get("/orders/", response_model=List[schemas.market.Order])
+@router.get("/orders/", response_model=List[schemas.market.MarketOrder])
 def get_orders(
     db: Session = Depends(deps.get_db),
     skip: int = 0,
@@ -154,15 +154,15 @@ def get_orders(
     """
     Get all orders for the current user.
     """
-    query = db.query(models.market.Order).filter(models.market.Order.user_id == current_user.id)
+    query = db.query(models.market.MarketOrder).filter(models.market.MarketOrder.user_id == current_user.id)
     
     if status:
-        query = query.filter(models.market.Order.status == status)
+        query = query.filter(models.market.MarketOrder.status == status)
         
     orders = query.offset(skip).limit(limit).all()
     return orders
 
-@router.get("/orders/{order_id}", response_model=schemas.market.OrderWithTransactions)
+@router.get("/orders/{order_id}", response_model=schemas.market.MarketOrderWithTransactions)
 def get_order(
     order_id: int,
     db: Session = Depends(deps.get_db),
@@ -171,9 +171,9 @@ def get_order(
     """
     Get specific order by ID.
     """
-    order = db.query(models.market.Order).filter(
-        models.market.Order.id == order_id,
-        models.market.Order.user_id == current_user.id
+    order = db.query(models.market.MarketOrder).filter(
+        models.market.MarketOrder.id == order_id,
+        models.market.MarketOrder.user_id == current_user.id
     ).first()
     
     if not order:
@@ -181,7 +181,7 @@ def get_order(
     
     return order
 
-@router.put("/orders/{order_id}/cancel", response_model=schemas.market.Order)
+@router.put("/orders/{order_id}/cancel", response_model=schemas.market.MarketOrder)
 def cancel_order(
     order_id: int,
     db: Session = Depends(deps.get_db),
@@ -190,9 +190,9 @@ def cancel_order(
     """
     Cancel an order.
     """
-    order = db.query(models.market.Order).filter(
-        models.market.Order.id == order_id,
-        models.market.Order.user_id == current_user.id
+    order = db.query(models.market.MarketOrder).filter(
+        models.market.MarketOrder.id == order_id,
+        models.market.MarketOrder.user_id == current_user.id
     ).first()
     
     if not order:
@@ -224,18 +224,18 @@ def get_orderbook(
         raise HTTPException(status_code=404, detail="Asset not found")
     
     # Get all open buy orders sorted by price (highest first)
-    buy_orders = db.query(models.market.Order).filter(
-        models.market.Order.asset_id == asset_id,
-        models.market.Order.order_type == "BUY",
-        models.market.Order.status == "OPEN"
-    ).order_by(models.market.Order.price.desc()).all()
+    buy_orders = db.query(models.market.MarketOrder).filter(
+        models.market.MarketOrder.asset_id == asset_id,
+        models.market.MarketOrder.order_type == "BUY",
+        models.market.MarketOrder.status == "OPEN"
+    ).order_by(models.market.MarketOrder.price.desc()).all()
     
     # Get all open sell orders sorted by price (lowest first)
-    sell_orders = db.query(models.market.Order).filter(
-        models.market.Order.asset_id == asset_id,
-        models.market.Order.order_type == "SELL",
-        models.market.Order.status == "OPEN"
-    ).order_by(models.market.Order.price.asc()).all()
+    sell_orders = db.query(models.market.MarketOrder).filter(
+        models.market.MarketOrder.asset_id == asset_id,
+        models.market.MarketOrder.order_type == "SELL",
+        models.market.MarketOrder.status == "OPEN"
+    ).order_by(models.market.MarketOrder.price.asc()).all()
     
     return {
         "asset": {

@@ -133,7 +133,7 @@ export default function RolePermissionsPage({
       assets: "bg-purple-100 text-purple-800",
       subscriptions: "bg-yellow-100 text-yellow-800",
       roles: "bg-red-100 text-red-800",
-      rfq: "bg-indigo-100 text-indigo-800",
+      order: "bg-indigo-100 text-indigo-800",
       transactions: "bg-pink-100 text-pink-800",
       analytics: "bg-gray-100 text-gray-800",
       system: "bg-orange-100 text-orange-800",

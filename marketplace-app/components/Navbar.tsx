@@ -80,10 +80,10 @@ export default function Navbar() {
                   News
                 </Link>
                 <Link
-                  href="/rfq"
+                  href="/orders"
                   className="text-gray-700 hover:text-green-600 px-3 py-2 text-sm font-medium transition-colors"
                 >
-                  RFQ
+                  Orders
                 </Link>
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-700">
@@ -178,11 +178,11 @@ export default function Navbar() {
                     News
                   </Link>
                   <Link
-                    href="/rfq"
+                    href="/orders"
                     className="block text-gray-700 hover:text-green-600 px-3 py-2 text-base font-medium transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    RFQ
+                    Orders
                   </Link>
                   <div className="px-3 py-2 text-sm text-gray-700">
                     {user.full_name || user.email}

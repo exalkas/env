@@ -5,7 +5,7 @@ import asyncio
 from app import models
 from app.core.websocket import send_asset_price_update, send_order_book_update, send_order_status_update, send_transaction_notification
 
-def match_orders(db: Session, new_order: models.market.Order):
+def match_orders(db: Session, new_order: models.market.MarketOrder):
     """
     Try to match a new order with existing orders in the opposite direction.
     Returns the transaction if a match was made, None otherwise.
@@ -17,19 +17,19 @@ def match_orders(db: Session, new_order: models.market.Order):
     # For BUY orders: match with SELL orders where price <= buy price (buy at or below my price)
     # For SELL orders: match with BUY orders where price >= sell price (sell at or above my price)
     if new_order.order_type == "BUY":
-        matching_orders = db.query(models.market.Order).filter(
-            models.market.Order.asset_id == new_order.asset_id,
-            models.market.Order.order_type == opposite_type,
-            models.market.Order.status == "OPEN",
-            models.market.Order.price <= new_order.price
-        ).order_by(models.market.Order.price).all()
+        matching_orders = db.query(models.market.MarketOrder).filter(
+            models.market.MarketOrder.asset_id == new_order.asset_id,
+            models.market.MarketOrder.order_type == opposite_type,
+            models.market.MarketOrder.status == "OPEN",
+            models.market.MarketOrder.price <= new_order.price
+        ).order_by(models.market.MarketOrder.price).all()
     else:  # SELL order
-        matching_orders = db.query(models.market.Order).filter(
-            models.market.Order.asset_id == new_order.asset_id,
-            models.market.Order.order_type == opposite_type,
-            models.market.Order.status == "OPEN",
-            models.market.Order.price >= new_order.price
-        ).order_by(models.market.Order.price.desc()).all()
+        matching_orders = db.query(models.market.MarketOrder).filter(
+            models.market.MarketOrder.asset_id == new_order.asset_id,
+            models.market.MarketOrder.order_type == opposite_type,
+            models.market.MarketOrder.status == "OPEN",
+            models.market.MarketOrder.price >= new_order.price
+        ).order_by(models.market.MarketOrder.price.desc()).all()
     
     # If no matching orders, return None
     if not matching_orders:

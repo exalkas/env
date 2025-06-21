@@ -111,13 +111,13 @@ def upgrade():
         {'name': 'roles.delete', 'display_name': 'Delete Roles', 'description': 'Delete user roles', 'module': 'roles', 'action': 'delete', 'is_active': True},
         {'name': 'roles.manage', 'display_name': 'Manage Roles', 'description': 'Full role management capabilities', 'module': 'roles', 'action': 'manage', 'is_active': True},
 
-        # RFQ management
-        {'name': 'rfq.create', 'display_name': 'Create RFQs', 'description': 'Create new quote requests', 'module': 'rfq', 'action': 'create', 'is_active': True},
-        {'name': 'rfq.read', 'display_name': 'View RFQs', 'description': 'View quote requests', 'module': 'rfq', 'action': 'read', 'is_active': True},
-        {'name': 'rfq.update', 'display_name': 'Update RFQs', 'description': 'Edit existing quote requests', 'module': 'rfq', 'action': 'update', 'is_active': True},
-        {'name': 'rfq.delete', 'display_name': 'Delete RFQs', 'description': 'Delete quote requests', 'module': 'rfq', 'action': 'delete', 'is_active': True},
-        {'name': 'rfq.quote', 'display_name': 'Provide Quotes', 'description': 'Provide quotes for RFQs', 'module': 'rfq', 'action': 'quote', 'is_active': True},
-        {'name': 'rfq.manage', 'display_name': 'Manage RFQs', 'description': 'Full RFQ management capabilities', 'module': 'rfq', 'action': 'manage', 'is_active': True},
+        # Order management
+        {'name': 'order.create', 'display_name': 'Create Orders', 'description': 'Create new trading orders', 'module': 'order', 'action': 'create', 'is_active': True},
+        {'name': 'order.read', 'display_name': 'View Orders', 'description': 'View trading orders', 'module': 'order', 'action': 'read', 'is_active': True},
+        {'name': 'order.update', 'display_name': 'Update Orders', 'description': 'Edit existing trading orders', 'module': 'order', 'action': 'update', 'is_active': True},
+        {'name': 'order.delete', 'display_name': 'Delete Orders', 'description': 'Delete trading orders', 'module': 'order', 'action': 'delete', 'is_active': True},
+        {'name': 'order.quote', 'display_name': 'Provide Quotes', 'description': 'Provide quotes for orders', 'module': 'order', 'action': 'quote', 'is_active': True},
+        {'name': 'order.manage', 'display_name': 'Manage Orders', 'description': 'Full order management capabilities', 'module': 'order', 'action': 'manage', 'is_active': True},
 
         # Transaction management
         {'name': 'transactions.read', 'display_name': 'View Transactions', 'description': 'View transaction records', 'module': 'transactions', 'action': 'read', 'is_active': True},
@@ -159,7 +159,7 @@ def upgrade():
         'assets.create', 'assets.read', 'assets.update', 'assets.delete', 'assets.manage',
         'subscriptions.create', 'subscriptions.read', 'subscriptions.update', 'subscriptions.delete', 'subscriptions.manage',
         'roles.read',
-        'rfq.read', 'rfq.update', 'rfq.quote', 'rfq.manage',
+        'order.read', 'order.update', 'order.quote', 'order.manage',
         'transactions.read', 'transactions.update', 'transactions.manage',
         'analytics.read', 'analytics.manage'
     ]

@@ -1,0 +1,216 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeftIcon } from "@heroicons/react/24/outline";
+import Link from "next/link";
+import {
+  Button,
+  LoadingSpinner,
+  QuestionForm,
+  type QuestionFormData,
+} from "@/components/shared";
+import { useNotifications } from "@/lib/hooks";
+import { NotificationContainer } from "@/components/NotificationToast";
+import { createQuestion } from "@/lib/api/education";
+
+export default function CreateQuestionPage() {
+  const router = useRouter();
+  const { notifications, addNotification, dismissNotification } =
+    useNotifications();
+
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (questionData: QuestionFormData) => {
+    setLoading(true);
+
+    try {
+      // Convert QuestionFormData to the format expected by the API
+      let options = undefined;
+
+      // Handle different question types
+      if (
+        ["multiple_choice", "multiple_select"].includes(
+          questionData.question_type
+        )
+      ) {
+        // For MCQ questions, use the options as-is
+        options = questionData.options?.map((option, index) => ({
+          option_text: option.option_text,
+          is_correct: option.is_correct,
+          sort_order: option.sort_order || index + 1,
+          explanation: option.explanation,
+        }));
+      } else if (
+        questionData.question_type === "fill_in_blank" &&
+        questionData.blank_answers
+      ) {
+        // For fill-in-the-blank questions, convert blank_answers to options format
+        options = questionData.blank_answers.map((answer, index) => ({
+          option_text: answer,
+          is_correct: true, // All blank answers are correct answers
+          sort_order: index + 1,
+          explanation: undefined,
+        }));
+      } else if (
+        questionData.question_type === "numeric" &&
+        questionData.numeric_answer
+      ) {
+        // For numeric questions, store answer data in options format
+        options = [
+          {
+            option_text: JSON.stringify({
+              correct_value: questionData.numeric_answer.correct_value,
+              tolerance: questionData.numeric_answer.tolerance,
+              unit: questionData.numeric_answer.unit,
+            }),
+            is_correct: true,
+            sort_order: 1,
+            explanation: undefined,
+          },
+        ];
+      } else if (
+        questionData.question_type === "true_false" &&
+        questionData.true_false_answer !== undefined
+      ) {
+        // For true/false questions, store answer as single option
+        options = [
+          {
+            option_text: questionData.true_false_answer.toString(),
+            is_correct: true,
+            sort_order: 1,
+            explanation: undefined,
+          },
+        ];
+      }
+
+      const apiData = {
+        title: questionData.title,
+        question_text: questionData.question_text,
+        question_type: questionData.question_type,
+        explanation: questionData.explanation,
+        points: questionData.points,
+        difficulty_level: questionData.difficulty_level,
+        category: questionData.category,
+        tags: questionData.tags,
+        is_active: questionData.is_active,
+        options: options || [], // Ensure options is always an array
+      };
+
+      console.log("Sending API data:", JSON.stringify(apiData, null, 2));
+      console.log(
+        "Question data from form:",
+        JSON.stringify(questionData, null, 2)
+      );
+      await createQuestion(apiData);
+      addNotification(
+        "success",
+        "Question created successfully!",
+        "Redirecting to questions list..."
+      );
+
+      setTimeout(() => {
+        router.push("/education/questions");
+      }, 1500);
+    } catch (error: any) {
+      console.error("Error creating question:", error);
+      console.error("Full error object:", JSON.stringify(error, null, 2));
+      console.error("Error response:", error.response);
+      console.error("Error response data:", error.response?.data);
+
+      let errorMessage = "Please try again";
+
+      // Try to extract error details from different possible locations
+      if (error.response?.data) {
+        if (error.response.data.detail) {
+          if (Array.isArray(error.response.data.detail)) {
+            errorMessage = error.response.data.detail
+              .map((e: any) => `${e.loc?.join(".")} - ${e.msg}`)
+              .join(", ");
+          } else {
+            errorMessage = error.response.data.detail;
+          }
+        } else if (error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else {
+          errorMessage = JSON.stringify(error.response.data);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      addNotification("error", "Failed to create question", errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    router.push("/education/questions");
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <LoadingSpinner size="lg" message="Creating question..." />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 max-w-4xl mx-auto">
+      <NotificationContainer
+        notifications={notifications}
+        onDismiss={dismissNotification}
+      />
+
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center mb-4">
+          <Link
+            href="/education/questions"
+            className="mr-4 p-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeftIcon className="h-5 w-5" />
+          </Link>
+          <div className="flex-1">
+            <nav className="text-sm text-gray-500 mb-2">
+              <Link href="/education" className="hover:text-gray-700">
+                Education
+              </Link>
+              <span className="mx-2">/</span>
+              <Link href="/education/questions" className="hover:text-gray-700">
+                Questions
+              </Link>
+              <span className="mx-2">/</span>
+              <span className="text-gray-900">Create New Question</span>
+            </nav>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Create New Question
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Add a new question to the question bank for use in assessments
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Form */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Question Details
+          </h2>
+        </div>
+        <div className="p-6">
+          <QuestionForm
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            isLoading={loading}
+            submitLabel="Create Question"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

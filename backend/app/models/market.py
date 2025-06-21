@@ -36,10 +36,10 @@ class Asset(Base):
     requires_kyc = Column(Boolean, default=False)
     
     # Relationships
-    orders = relationship("Order", back_populates="asset")
+    orders = relationship("MarketOrder", back_populates="asset")
 
-class Order(Base):
-    __tablename__ = "orders"
+class MarketOrder(Base):
+    __tablename__ = "market_orders"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
@@ -52,7 +52,7 @@ class Order(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    user = relationship("User", back_populates="orders")
+    user = relationship("User")
     asset = relationship("Asset", back_populates="orders")
     transactions = relationship("Transaction", back_populates="order")
 
@@ -60,7 +60,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, ForeignKey("orders.id"))
+    order_id = Column(Integer, ForeignKey("market_orders.id"))
     buyer_id = Column(Integer, ForeignKey("users.id"))
     seller_id = Column(Integer, ForeignKey("users.id"))
     asset_id = Column(Integer, ForeignKey("assets.id"))
@@ -70,7 +70,7 @@ class Transaction(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
-    order = relationship("Order", back_populates="transactions")
+    order = relationship("MarketOrder", back_populates="transactions")
     buyer = relationship("User", foreign_keys=[buyer_id])
     seller = relationship("User", foreign_keys=[seller_id])
     asset = relationship("Asset") 

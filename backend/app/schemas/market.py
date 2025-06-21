@@ -29,22 +29,22 @@ class Asset(AssetBase):
     class Config:
         from_attributes = True
 
-# Order schemas
-class OrderBase(BaseModel):
+# MarketOrder schemas (for marketplace functionality)
+class MarketOrderBase(BaseModel):
     asset_id: int
     order_type: str  # BUY or SELL
     quantity: float
     price: float
 
-class OrderCreate(OrderBase):
+class MarketOrderCreate(MarketOrderBase):
     pass
 
-class OrderUpdate(BaseModel):
+class MarketOrderUpdate(BaseModel):
     quantity: Optional[float] = None
     price: Optional[float] = None
     status: Optional[str] = None
 
-class Order(OrderBase):
+class MarketOrder(MarketOrderBase):
     id: int
     user_id: int
     status: str
@@ -54,7 +54,7 @@ class Order(OrderBase):
     class Config:
         from_attributes = True
 
-# Transaction schemas
+# Transaction schemas (for marketplace functionality)
 class TransactionBase(BaseModel):
     order_id: int
     buyer_id: int
@@ -75,11 +75,11 @@ class Transaction(TransactionBase):
         from_attributes = True
 
 # Extended schemas for relationships
-class AssetWithOrders(Asset):
-    orders: List[Order] = []
+class AssetWithMarketOrders(Asset):
+    market_orders: List[MarketOrder] = []
 
-class OrderWithTransactions(Order):
+class MarketOrderWithTransactions(MarketOrder):
     transactions: List[Transaction] = []
     
-class OrderWithAsset(Order):
+class MarketOrderWithAsset(MarketOrder):
     asset: Asset 

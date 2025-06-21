@@ -12,6 +12,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { fetchWithAuth } from "../../../lib/utils/auth";
 import NewsAutomation from "../../../components/NewsAutomation";
+import ConfirmationModal from "../../../components/ConfirmationModal";
+import { useCategories } from "@/lib/contexts/CategoriesContext";
 
 interface News {
   id: number;
@@ -71,6 +73,7 @@ interface CategoryFormData {
 }
 
 export default function NewsPage() {
+  const { refreshCategories } = useCategories();
   const [news, setNews] = useState<News[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,6 +98,22 @@ export default function NewsPage() {
     total: 0,
     totalPages: 0,
   });
+
+  // Confirmation modal state for news deletion
+  const [showDeleteNewsModal, setShowDeleteNewsModal] = useState(false);
+  const [newsToDelete, setNewsToDelete] = useState<News | null>(null);
+  const [isDeletingNews, setIsDeletingNews] = useState(false);
+  const [deleteNewsError, setDeleteNewsError] = useState<string | null>(null);
+
+  // Confirmation modal state for category deletion
+  const [showDeleteCategoryModal, setShowDeleteCategoryModal] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(
+    null
+  );
+  const [isDeletingCategory, setIsDeletingCategory] = useState(false);
+  const [deleteCategoryError, setDeleteCategoryError] = useState<string | null>(
+    null
+  );
 
   const [formData, setFormData] = useState<NewsFormData>({
     title: "",
@@ -294,35 +313,42 @@ export default function NewsPage() {
 
   const handleEdit = (newsItem: News) => {
     setEditingNews(newsItem);
-
-    const additionalCategories =
-      newsItem.categories?.filter((cat) => !cat.is_primary) || [];
-
     setFormData({
       title: newsItem.title,
-      summary: newsItem.summary || "",
+      summary: newsItem.summary,
       content: newsItem.content,
       category: newsItem.category,
-      additional_category_ids: additionalCategories.map((cat) => cat.id),
-      tags: newsItem.tags || "",
-      author: newsItem.author || "",
-      source_url: newsItem.source_url || "",
-      image_url: newsItem.image_url || "",
+      additional_category_ids: newsItem.categories
+        ? newsItem.categories
+            .filter((cat) => !cat.is_primary)
+            .map((cat) => cat.id)
+        : [],
+      tags: newsItem.tags,
+      author: newsItem.author,
+      source_url: newsItem.source_url,
+      image_url: newsItem.image_url,
       is_featured: newsItem.is_featured,
       is_published: newsItem.is_published,
-      scheduled_publish_at: newsItem.scheduled_publish_at
-        ? new Date(newsItem.scheduled_publish_at).toISOString().slice(0, 16)
-        : "",
+      scheduled_publish_at: newsItem.scheduled_publish_at || "",
     });
     setShowForm(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this news item?")) return;
+  const handleDeleteClick = (newsItem: News) => {
+    setNewsToDelete(newsItem);
+    setDeleteNewsError(null);
+    setShowDeleteNewsModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!newsToDelete) return;
+
+    setIsDeletingNews(true);
+    setDeleteNewsError(null);
 
     try {
       const response = await fetchWithAuth(
-        `http://localhost:8000/api/v1/news/${id}`,
+        `http://localhost:8000/api/v1/news/${newsToDelete.id}`,
         {
           method: "DELETE",
         }
@@ -330,10 +356,26 @@ export default function NewsPage() {
 
       if (response.ok) {
         await fetchNews();
+        setShowDeleteNewsModal(false);
+        setNewsToDelete(null);
+      } else {
+        const errorData = await response
+          .json()
+          .catch(() => ({ detail: "Failed to delete news item" }));
+        setDeleteNewsError(errorData.detail || "Failed to delete news item");
       }
     } catch (error) {
       console.error("Error deleting news:", error);
+      setDeleteNewsError("Network error occurred while deleting news item");
+    } finally {
+      setIsDeletingNews(false);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteNewsModal(false);
+    setNewsToDelete(null);
+    setDeleteNewsError(null);
   };
 
   const handlePublish = async (id: number, publish: boolean) => {
@@ -380,6 +422,7 @@ export default function NewsPage() {
 
       if (response.ok) {
         await fetchCategories();
+        await refreshCategories(); // Refresh global categories context
         setShowCategoryForm(false);
         setEditingCategory(null);
         setCategoryFormData({
@@ -427,12 +470,21 @@ export default function NewsPage() {
     setShowCategoryForm(true);
   };
 
-  const handleDeleteCategory = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this category?")) return;
+  const handleDeleteCategoryClick = (category: Category) => {
+    setCategoryToDelete(category);
+    setDeleteCategoryError(null);
+    setShowDeleteCategoryModal(true);
+  };
+
+  const handleDeleteCategoryConfirm = async () => {
+    if (!categoryToDelete) return;
+
+    setIsDeletingCategory(true);
+    setDeleteCategoryError(null);
 
     try {
       const response = await fetchWithAuth(
-        `http://localhost:8000/api/v1/news-categories/${id}`,
+        `http://localhost:8000/api/v1/news-categories/${categoryToDelete.id}`,
         {
           method: "DELETE",
         }
@@ -440,10 +492,27 @@ export default function NewsPage() {
 
       if (response.ok) {
         await fetchCategories();
+        await refreshCategories(); // Refresh global categories context
+        setShowDeleteCategoryModal(false);
+        setCategoryToDelete(null);
+      } else {
+        const errorData = await response
+          .json()
+          .catch(() => ({ detail: "Failed to delete category" }));
+        setDeleteCategoryError(errorData.detail || "Failed to delete category");
       }
     } catch (error) {
       console.error("Error deleting category:", error);
+      setDeleteCategoryError("Network error occurred while deleting category");
+    } finally {
+      setIsDeletingCategory(false);
     }
+  };
+
+  const handleDeleteCategoryCancel = () => {
+    setShowDeleteCategoryModal(false);
+    setCategoryToDelete(null);
+    setDeleteCategoryError(null);
   };
 
   const handleAdditionalCategoryToggle = (categoryId: number) => {
@@ -1296,7 +1365,7 @@ export default function NewsPage() {
                         )}
                       </button>
                       <button
-                        onClick={() => handleDelete(item.id)}
+                        onClick={() => handleDeleteClick(item)}
                         className="text-red-600 hover:text-red-800"
                         title="Delete"
                       >
@@ -1496,7 +1565,7 @@ export default function NewsPage() {
                         <PencilIcon className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => handleDeleteCategory(category.id)}
+                        onClick={() => handleDeleteCategoryClick(category)}
                         className="text-red-600 hover:text-red-800"
                         title="Delete"
                       >
@@ -1519,6 +1588,32 @@ export default function NewsPage() {
 
       {/* AI Automation Tab */}
       {activeTab === "automation" && <NewsAutomation />}
+
+      {/* Confirmation Modal for News Deletion */}
+      {showDeleteNewsModal && (
+        <ConfirmationModal
+          isOpen={showDeleteNewsModal}
+          title="Delete News Item"
+          message={`Are you sure you want to delete the news item "${newsToDelete?.title}"?`}
+          onConfirm={handleDeleteConfirm}
+          onClose={handleDeleteCancel}
+          isLoading={isDeletingNews}
+          error={deleteNewsError}
+        />
+      )}
+
+      {/* Confirmation Modal for Category Deletion */}
+      {showDeleteCategoryModal && (
+        <ConfirmationModal
+          isOpen={showDeleteCategoryModal}
+          title="Delete Category"
+          message={`Are you sure you want to delete the category "${categoryToDelete?.display_name}"?`}
+          onConfirm={handleDeleteCategoryConfirm}
+          onClose={handleDeleteCategoryCancel}
+          isLoading={isDeletingCategory}
+          error={deleteCategoryError}
+        />
+      )}
     </div>
   );
 }

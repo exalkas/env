@@ -292,13 +292,13 @@ class Permissions:
     ROLES_DELETE = "roles.delete"
     ROLES_MANAGE = "roles.manage"  # Full role management
     
-    # RFQ management
-    RFQ_CREATE = "rfq.create"
-    RFQ_READ = "rfq.read"
-    RFQ_UPDATE = "rfq.update"
-    RFQ_DELETE = "rfq.delete"
-    RFQ_QUOTE = "rfq.quote"  # Provide quotes
-    RFQ_MANAGE = "rfq.manage"  # Full RFQ management
+    # Order management
+    ORDER_CREATE = "order.create"
+    ORDER_READ = "order.read"
+    ORDER_UPDATE = "order.update"
+    ORDER_DELETE = "order.delete"
+    ORDER_QUOTE = "order.quote"  # Provide quotes
+    ORDER_MANAGE = "order.manage"  # Full order management
     
     # Transaction management
     TRANSACTIONS_READ = "transactions.read"
@@ -360,10 +360,10 @@ DEFAULT_ROLE_PERMISSIONS = {
         
         Permissions.ROLES_READ,  # Can view roles but not manage them
         
-        Permissions.RFQ_READ,
-        Permissions.RFQ_UPDATE,
-        Permissions.RFQ_QUOTE,
-        Permissions.RFQ_MANAGE,
+        Permissions.ORDER_READ,
+        Permissions.ORDER_UPDATE,
+        Permissions.ORDER_QUOTE,
+        Permissions.ORDER_MANAGE,
         
         Permissions.TRANSACTIONS_READ,
         Permissions.TRANSACTIONS_UPDATE,
