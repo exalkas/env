@@ -55,7 +55,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div>
+    <div className="dashboard-container">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">
           Welcome back, {user?.full_name || "Trader"}!

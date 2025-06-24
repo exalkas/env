@@ -507,6 +507,7 @@ export default function OrdersPage() {
           onClick={() => setShowForm(true)}
           variant="success"
           icon={PlusIcon}
+          className="new-order-button"
         >
           New Order
         </Button>

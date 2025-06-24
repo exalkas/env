@@ -20,6 +20,7 @@ import {
   ChartBarIcon,
   ShieldCheckIcon,
   XMarkIcon,
+  QuestionMarkCircleIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -109,7 +110,7 @@ export default function DashboardNavigation({
 
       {/* Navigation Drawer */}
       <div
-        className={`${
+        className={`sidebar-navigation ${
           isMobile ? "fixed inset-y-0 left-0 z-50" : "relative"
         } bg-gray-800 text-white min-h-screen flex flex-col transition-all duration-300 ease-in-out ${
           isMobile ? "w-80" : isExpanded ? "w-64" : "w-16"
