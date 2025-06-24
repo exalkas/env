@@ -21,9 +21,9 @@ import {
   FormSelect,
   SearchInput,
 } from "@/components/shared";
-import { useNotifications } from "@/lib/hooks";
+import { useNotifications, useConfirmationModal } from "@/lib/hooks";
 import { fetchWithAuth } from "@/lib/utils/auth";
-import { NotificationContainer } from "@/components/NotificationToast";
+import ConfirmationModal from "@/components/ConfirmationModal";
 import type { Column, ActionButton } from "@/components/shared";
 
 interface Lesson {
@@ -59,6 +59,21 @@ export default function LessonsOverview() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [levelFilter, setLevelFilter] = useState<string>("all");
+
+  const {
+    isOpen: isModalOpen,
+    title: modalTitle,
+    message: modalMessage,
+    loading: modalLoading,
+    error: modalError,
+    confirm,
+    closeModal,
+    showGenericConfirmation,
+  } = useConfirmationModal({
+    onConfirm: async (lessonId: number) => {
+      await performDelete(lessonId);
+    },
+  });
 
   useEffect(() => {
     fetchLessons();
@@ -162,23 +177,33 @@ export default function LessonsOverview() {
     setFilteredLessons(filtered);
   };
 
-  const handleDeleteLesson = async (lessonId: number) => {
-    if (confirm("Are you sure you want to delete this lesson?")) {
-      try {
-        const response = await fetchWithAuth(
-          `http://localhost:8000/api/v1/education/lessons/${lessonId}`,
-          { method: "DELETE" }
-        );
-        if (response.ok) {
-          addNotification("success", "Lesson deleted successfully");
-          fetchLessons(); // Refresh the list
-        } else {
-          throw new Error("Failed to delete lesson");
-        }
-      } catch (error) {
-        console.error("Error deleting lesson:", error);
+  const handleDeleteLesson = (lessonId: number) => {
+    const lesson = lessons.find((l) => l.id === lessonId);
+    if (!lesson) return;
+
+    showGenericConfirmation(
+      "Delete Lesson",
+      `Are you sure you want to delete "${lesson.title}"? This action cannot be undone.`,
+      lessonId,
+      "danger"
+    );
+  };
+
+  const performDelete = async (lessonId: number) => {
+    try {
+      const response = await fetchWithAuth(
+        `http://localhost:8000/api/v1/education/lessons/${lessonId}`,
+        { method: "DELETE" }
+      );
+      if (response.ok) {
+        addNotification("success", "Lesson deleted successfully");
+        fetchLessons(); // Refresh the list
+      } else {
         addNotification("error", "Failed to delete lesson");
       }
+    } catch (error) {
+      console.error("Error deleting lesson:", error);
+      addNotification("error", "Failed to delete lesson");
     }
   };
 
@@ -321,21 +346,44 @@ export default function LessonsOverview() {
 
   return (
     <div className="p-6">
-      <NotificationContainer
-        notifications={notifications}
-        onDismiss={dismissNotification}
-      />
+      {/* Notifications */}
+      {notifications.map((notification) => (
+        <div
+          key={notification.id}
+          className={`mb-4 p-4 rounded-md ${
+            notification.type === "success"
+              ? "bg-green-50 text-green-800 border border-green-200"
+              : notification.type === "error"
+              ? "bg-red-50 text-red-800 border border-red-200"
+              : notification.type === "warning"
+              ? "bg-yellow-50 text-yellow-800 border border-yellow-200"
+              : "bg-blue-50 text-blue-800 border border-blue-200"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span>{notification.message}</span>
+            <button
+              onClick={() => dismissNotification(notification.id)}
+              className="ml-4 text-gray-400 hover:text-gray-600"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      ))}
 
       {/* Header */}
-      <div className="mb-8">
-        <div className="sm:flex sm:items-center">
-          <div className="sm:flex-auto">
-            <h1 className="text-2xl font-semibold text-gray-900">Lessons</h1>
-            <p className="mt-2 text-sm text-gray-700">
-              Manage all lessons across learning paths and modules.{" "}
-              {lessons.length} total lessons.
-            </p>
-          </div>
+      <div className="sm:flex sm:items-center sm:justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Lessons</h1>
+          <p className="mt-2 text-gray-600">
+            Manage all lessons across learning paths and modules
+          </p>
+        </div>
+        <div className="mt-4 sm:mt-0">
+          <Button href="/education/lessons/create" icon={PlusIcon}>
+            Create Lesson
+          </Button>
         </div>
       </div>
 
@@ -402,30 +450,86 @@ export default function LessonsOverview() {
             </FormSelect>
           </div>
         </div>
+      </div>
 
-        {/* Stats */}
-        <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-          <div>
-            Showing {filteredLessons.length} of {lessons.length} lessons
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="text-2xl font-bold text-gray-900">
+            {lessons.length}
           </div>
+          <div className="text-sm text-gray-600">Total Lessons</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="text-2xl font-bold text-green-600">
+            {lessons.filter((l) => l.is_active).length}
+          </div>
+          <div className="text-sm text-gray-600">Active Lessons</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="text-2xl font-bold text-blue-600">
+            {lessons.filter((l) => l.lesson_type === "VIDEO").length}
+          </div>
+          <div className="text-sm text-gray-600">Video Lessons</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="text-2xl font-bold text-purple-600">
+            {Math.round(
+              lessons.reduce((sum, l) => sum + l.estimated_duration, 0) / 60
+            )}
+            h
+          </div>
+          <div className="text-sm text-gray-600">Total Duration</div>
         </div>
       </div>
 
-      {/* Data Table */}
-      <DataTable
-        data={filteredLessons}
-        columns={columns}
-        actions={actions}
-        loading={loading}
-        searchable={false} // We handle search externally
-        emptyState={{
-          title: "No lessons found",
-          description:
-            lessons.length === 0
-              ? "Get started by creating your first lesson."
-              : "No lessons match your current filters.",
-        }}
-        initialSort={{ key: "title", direction: "asc" }}
+      {/* Lessons Table */}
+      <div className="bg-white rounded-lg shadow">
+        {filteredLessons.length === 0 ? (
+          <EmptyState
+            title="No lessons found"
+            description={
+              lessons.length === 0
+                ? "Get started by creating your first lesson."
+                : "No lessons match your current filters."
+            }
+            action={
+              lessons.length === 0
+                ? {
+                    label: "Create Lesson",
+                    href: "/education/lessons/create",
+                  }
+                : {
+                    label: "Clear Filters",
+                    onClick: () => {
+                      setSearchQuery("");
+                      setStatusFilter("all");
+                      setTypeFilter("all");
+                      setLevelFilter("all");
+                    },
+                  }
+            }
+          />
+        ) : (
+          <DataTable
+            data={filteredLessons}
+            columns={columns}
+            actions={actions}
+            searchable={false} // We handle search externally
+            pagination={{ pageSize: 20 }}
+          />
+        )}
+      </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isModalOpen}
+        onConfirm={confirm}
+        onClose={closeModal}
+        title={modalTitle}
+        message={modalMessage}
+        isLoading={modalLoading}
+        error={modalError}
       />
     </div>
   );

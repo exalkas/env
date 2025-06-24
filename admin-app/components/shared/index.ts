@@ -8,6 +8,8 @@ export { default as LoadingSpinner } from "./LoadingSpinner";
 export { default as RichTextEditor } from "./RichTextEditor";
 export { default as SearchInput } from "./SearchInput";
 export { default as EmptyState } from "./EmptyState";
+export { default as Card } from "./Card";
+export { default as Modal } from "./Modal";
 
 // Form components
 export { default as FormInput } from "./FormInput";

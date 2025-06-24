@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "../../lib/AuthContext";
+import { useAuth } from "@/lib/AuthContext";
 import {
   MagnifyingGlassIcon,
   BookmarkIcon,
   TagIcon,
 } from "@heroicons/react/24/outline";
+import { SearchInput, EmptyState } from "@/components/shared";
 
 interface GlossaryTerm {
   id: number;
@@ -122,18 +123,11 @@ export default function GlossaryPage() {
             <div className="flex flex-col sm:flex-row gap-4">
               {/* Search */}
               <div className="flex-1">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Search terms, definitions, or categories..."
-                  />
-                </div>
+                <SearchInput
+                  value={searchTerm}
+                  onChange={setSearchTerm}
+                  placeholder="Search terms, definitions, or categories..."
+                />
               </div>
 
               {/* Category Filter */}
@@ -198,15 +192,11 @@ export default function GlossaryPage() {
 
         {/* Glossary Terms */}
         {filteredTerms.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg shadow">
-            <BookmarkIcon className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">
-              No terms found
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Try adjusting your search or filter criteria.
-            </p>
-          </div>
+          <EmptyState
+            icon={BookmarkIcon}
+            title="No terms found"
+            description="Try adjusting your search or filter criteria."
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTerms

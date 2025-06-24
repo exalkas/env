@@ -5,6 +5,13 @@ import { Asset, MarketApi } from "@/lib/api/market";
 import { isAuthenticated, getSubscriptionType } from "@/lib/utils/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import {
+  StatusBadge,
+  LoadingSpinner,
+  EmptyState,
+  Button,
+  Card,
+} from "@/components/shared";
 
 export default function MarketPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -58,7 +65,7 @@ export default function MarketPage() {
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <p className="text-gray-500">Loading assets...</p>
+          <LoadingSpinner size="lg" message="Loading assets..." />
         </div>
       ) : error ? (
         <div className="bg-red-50 border-l-4 border-red-400 p-4">
@@ -68,9 +75,11 @@ export default function MarketPage() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {assets.map((asset) => (
-              <div
+              <Card
                 key={asset.id}
-                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+                variant="interactive"
+                padding="none"
+                className="overflow-hidden"
               >
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
@@ -78,9 +87,7 @@ export default function MarketPage() {
                       <h2 className="text-xl font-semibold">{asset.name}</h2>
                       <p className="text-gray-500 text-sm">{asset.symbol}</p>
                     </div>
-                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-                      {asset.asset_type}
-                    </span>
+                    <StatusBadge status={asset.asset_type} size="sm" />
                   </div>
 
                   <div className="mb-4">
@@ -100,24 +107,24 @@ export default function MarketPage() {
                   )}
 
                   <div className="mt-4">
-                    <Link
+                    <Button
                       href={`/market/${asset.id}`}
-                      className="block w-full text-center bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded"
+                      variant="success"
+                      fullWidth
                     >
                       View Details
-                    </Link>
+                    </Button>
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
 
           {assets.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">
-                No assets available at the moment.
-              </p>
-            </div>
+            <EmptyState
+              title="No assets available"
+              description="No assets are available at the moment. Please check back later."
+            />
           )}
         </>
       )}

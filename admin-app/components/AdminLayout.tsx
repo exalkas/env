@@ -46,9 +46,9 @@ export default function AdminLayout({
 
   // Show navigation for authenticated admin pages
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-gray-100 relative">
       <Navigation />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto min-w-0">
         <div className="p-6">{children}</div>
       </main>
     </div>

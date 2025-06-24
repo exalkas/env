@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/AuthContext";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "./shared";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -105,12 +106,9 @@ export default function Navbar() {
                 >
                   Login
                 </Link>
-                <Link
-                  href="/signup"
-                  className="bg-green-600 text-white px-4 py-2 text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
-                >
+                <Button href="/signup" variant="success" size="sm">
                   Sign Up
-                </Link>
+                </Button>
               </div>
             )}
           </div>
@@ -206,13 +204,15 @@ export default function Navbar() {
                   >
                     Login
                   </Link>
-                  <Link
+                  <Button
                     href="/signup"
-                    className="block bg-green-600 text-white px-3 py-2 text-base font-medium rounded-lg hover:bg-green-700 transition-colors"
+                    variant="success"
+                    size="md"
                     onClick={() => setIsMenuOpen(false)}
+                    fullWidth
                   >
                     Sign Up
-                  </Link>
+                  </Button>
                 </>
               )}
             </div>
