@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useAuth } from "../../lib/AuthContext";
+import { useAuth } from "@/lib/AuthContext";
 import {
   MagnifyingGlassIcon,
   FunnelIcon,

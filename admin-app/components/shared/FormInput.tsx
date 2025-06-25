@@ -14,6 +14,7 @@ interface FormInputProps {
   max?: number;
   step?: number;
   className?: string;
+  label?: string;
 }
 
 export default function FormInput({
@@ -30,6 +31,7 @@ export default function FormInput({
   max,
   step,
   className = "",
+  label,
 }: FormInputProps) {
   const baseClasses = `
     mt-1 block w-full px-3 py-2 
@@ -46,19 +48,27 @@ export default function FormInput({
     : "border-gray-300";
 
   return (
-    <input
-      id={id}
-      name={name || id}
-      type={type}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      disabled={disabled}
-      required={required}
-      min={min}
-      max={max}
-      step={step}
-      className={`${baseClasses} ${borderClasses} ${className}`}
-    />
+    <div>
+      {label && (
+        <label className="block text-sm font-medium mb-1 text-gray-700">
+          {label}
+        </label>
+      )}
+      <input
+        id={id}
+        name={name || id}
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        disabled={disabled}
+        required={required}
+        min={min}
+        max={max}
+        step={step}
+        className={`${baseClasses} ${borderClasses} ${className}`}
+      />
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+    </div>
   );
 }

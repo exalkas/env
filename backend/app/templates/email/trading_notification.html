@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% if notification_type == "order_filled" %}
+{% set subject = "Order Executed - " + (asset_name or "Trading Update") %}
+{% elif notification_type == "order_partial" %}
+{% set subject = "Partial Order Fill - " + (asset_name or "Trading Update") %}
+{% elif notification_type == "order_cancelled" %}
+{% set subject = "Order Cancelled - " + (asset_name or "Trading Update") %}
+{% elif notification_type == "new_opportunity" %}
+{% set subject = "New Trading Opportunity - " + (asset_name or "Market Alert") %}
+{% elif notification_type == "price_alert" %}
+{% set subject = "Price Alert Triggered - " + (asset_name or "Market Update") %}
+{% elif notification_type == "payment_received" %}
+{% set subject = "Payment Received - Transaction Confirmed" %}
+{% else %}
+{% set subject = "Trading Notification - " + notification_type|title %}
+{% endif %}
+
+{% block content %}
+<div class="greeting">Hello {{ user_name }},</div>
+
+{% if notification_type == "order_filled" %}
+<div class="success-box">
+    <strong>✅ Your order has been successfully executed!</strong><br>
+    {% if asset_name %}{{ asset_name }} - {% endif %}{{ order_type|default("Order")|title }} Completed
+</div>
+
+<div class="content-text">
+    <strong>Order Details:</strong>
+</div>
+
+<div
+    style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #22c55e;">
+    {% if asset_name %}<p><strong>Asset:</strong> {{ asset_name }}</p>{% endif %}
+    {% if order_type %}<p><strong>Type:</strong> {{ order_type|title }}</p>{% endif %}
+    {% if quantity %}<p><strong>Quantity:</strong> {{ quantity }}</p>{% endif %}
+    {% if price %}<p><strong>Price:</strong> {{ price }}</p>{% endif %}
+    {% if total %}<p><strong>Total Value:</strong> {{ total }}</p>{% endif %}
+    {% if execution_time %}<p><strong>Executed:</strong> {{ execution_time }}</p>{% endif %}
+</div>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ app_url }}/transactions" class="btn btn-success">View Transaction</a>
+</div>
+
+{% elif notification_type == "order_partial" %}
+<div class="warning-box">
+    <strong>⚠️ Your order has been partially filled.</strong><br>
+    {% if asset_name %}{{ asset_name }} - {% endif %}{{ filled_quantity or "Some" }} of {{ total_quantity or "your
+    order" }} executed
+</div>
+
+<div class="content-text">
+    <strong>Partial Fill Details:</strong>
+</div>
+
+<div
+    style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #eab308;">
+    {% if asset_name %}<p><strong>Asset:</strong> {{ asset_name }}</p>{% endif %}
+    {% if filled_quantity and total_quantity %}<p><strong>Filled:</strong> {{ filled_quantity }} of {{ total_quantity }}
+    </p>{% endif %}
+    {% if price %}<p><strong>Price:</strong> {{ price }}</p>{% endif %}
+    {% if remaining_quantity %}<p><strong>Remaining:</strong> {{ remaining_quantity }}</p>{% endif %}
+</div>
+
+<div class="content-text">
+    The remaining portion of your order is still active and will execute when market conditions match your criteria.
+</div>
+
+{% elif notification_type == "order_cancelled" %}
+<div class="error-box">
+    <strong>❌ Your order has been cancelled.</strong><br>
+    {% if asset_name %}{{ asset_name }} - {% endif %}{{ order_type|default("Order")|title }} Cancelled
+</div>
+
+{% if cancellation_reason %}
+<div class="info-box">
+    <strong>Cancellation Reason:</strong><br>
+    {{ cancellation_reason }}
+</div>
+{% endif %}
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ app_url }}/market" class="btn">Place New Order</a>
+</div>
+
+{% elif notification_type == "new_opportunity" %}
+<div class="info-box">
+    <strong>🚀 New Trading Opportunity Available!</strong><br>
+    {% if asset_name %}{{ asset_name }} - {% endif %}Exclusive Investment Opportunity
+</div>
+
+<div class="content-text">
+    We've identified a new green energy trading opportunity that matches your investment preferences.
+</div>
+
+{% if opportunity_details %}
+<div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    {{ opportunity_details }}
+</div>
+{% endif %}
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ app_url }}/market" class="btn">View Opportunity</a>
+</div>
+
+{% elif notification_type == "price_alert" %}
+<div class="warning-box">
+    <strong>📊 Price Alert Triggered!</strong><br>
+    {% if asset_name %}{{ asset_name }}{% endif %} has reached your target price
+</div>
+
+<div class="content-text">
+    <strong>Price Movement Details:</strong>
+</div>
+
+<div
+    style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+    {% if asset_name %}<p><strong>Asset:</strong> {{ asset_name }}</p>{% endif %}
+    {% if current_price %}<p><strong>Current Price:</strong> {{ current_price }}</p>{% endif %}
+    {% if target_price %}<p><strong>Target Price:</strong> {{ target_price }}</p>{% endif %}
+    {% if price_change %}<p><strong>Change:</strong> {{ price_change }}</p>{% endif %}
+</div>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ app_url }}/market" class="btn btn-warning">Trade Now</a>
+</div>
+
+{% elif notification_type == "payment_received" %}
+<div class="success-box">
+    <strong>💰 Payment Received!</strong><br>
+    Your payment has been successfully processed and credited to your account.
+</div>
+
+<div class="content-text">
+    <strong>Payment Details:</strong>
+</div>
+
+<div
+    style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #22c55e;">
+    {% if payment_amount %}<p><strong>Amount:</strong> {{ payment_amount }}</p>{% endif %}
+    {% if payment_method %}<p><strong>Method:</strong> {{ payment_method }}</p>{% endif %}
+    {% if transaction_id %}<p><strong>Transaction ID:</strong> {{ transaction_id }}</p>{% endif %}
+    {% if payment_date %}<p><strong>Date:</strong> {{ payment_date }}</p>{% endif %}
+</div>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ app_url }}/payments/history" class="btn btn-success">View Payment History</a>
+</div>
+
+{% else %}
+<div class="info-box">
+    <strong>📋 Trading Update</strong><br>
+    You have a new notification regarding your trading activity.
+</div>
+
+<div class="content-text">
+    <strong>Notification:</strong> {{ notification_type|title|replace("_", " ") }}
+</div>
+
+{% if message %}
+<div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    {{ message }}
+</div>
+{% endif %}
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ app_url }}/dashboard" class="btn">View Dashboard</a>
+</div>
+{% endif %}
+
+<div class="info-box">
+    <strong>💡 Pro Tip:</strong><br>
+    You can customize your notification preferences in your account settings to receive alerts that matter most to you.
+</div>
+
+<div class="content-text">
+    If you have any questions about this notification or need assistance with your trading activities,
+    please contact our support team at <a href="mailto:{{ support_email }}" style="color: #2563eb;">{{ support_email
+        }}</a>.
+</div>
+
+<div class="content-text">
+    Happy trading!<br>
+    <strong>Emisify Trading Team</strong>
+</div>
+{% endblock %}

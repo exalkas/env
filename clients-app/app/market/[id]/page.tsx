@@ -18,6 +18,14 @@ import websocketService, {
   AssetPriceUpdate,
   OrderBookUpdate,
 } from "@/lib/services/websocket";
+import {
+  Card,
+  Button,
+  FormInput,
+  StatusBadge,
+  LoadingSpinner,
+  EmptyState,
+} from "@/components/shared";
 
 export default function AssetDetailPage({
   params,
@@ -51,27 +59,30 @@ export default function AssetDetailPage({
       const data = await MarketApi.getOrderBook(assetId);
       setOrderBook(data);
 
-      // Auto-fill price field with current price
-      if (!price && data.asset.current_price) {
+      // Auto-fill price field with current price only if it's not set
+      if (price === 0 && data.asset.current_price) {
         setPrice(data.asset.current_price);
       }
     } catch (err: any) {
       console.error("Error fetching order book:", err);
     }
-  }, [assetId, price]);
+  }, [assetId]); // Remove price dependency to prevent infinite loop
 
   // Handle real-time price updates
   const handlePriceUpdate = useCallback(
     (data: AssetPriceUpdate) => {
-      if (data.asset_id === assetId && asset) {
-        setAsset({
-          ...asset,
-          current_price: data.price,
-          last_updated: data.last_updated,
+      if (data.asset_id === assetId) {
+        setAsset((prevAsset) => {
+          if (!prevAsset) return null;
+          return {
+            ...prevAsset,
+            current_price: data.price,
+            last_updated: data.last_updated,
+          };
         });
       }
     },
-    [assetId, asset]
+    [assetId] // Remove asset dependency to prevent infinite loop
   );
 
   // Handle real-time order book updates
@@ -119,13 +130,18 @@ export default function AssetDetailPage({
     // Subscribe to price updates
     websocketService.subscribeToAsset(assetId);
 
-    // Add event listeners
-    websocketService.onAssetPriceUpdate(handlePriceUpdate);
-    websocketService.onOrderBookUpdate(handleOrderBookUpdate);
-
     // Clean up when component unmounts
     return () => {
       websocketService.unsubscribeFromAsset(assetId);
+    };
+  }, [assetId]); // Only depend on assetId to prevent infinite loop
+
+  // Update event listeners when callbacks change
+  useEffect(() => {
+    websocketService.onAssetPriceUpdate(handlePriceUpdate);
+    websocketService.onOrderBookUpdate(handleOrderBookUpdate);
+
+    return () => {
       websocketService.removeEventListener(
         "asset_price_update",
         handlePriceUpdate
@@ -135,13 +151,7 @@ export default function AssetDetailPage({
         handleOrderBookUpdate
       );
     };
-  }, [
-    assetId,
-    router,
-    fetchOrderBook,
-    handlePriceUpdate,
-    handleOrderBookUpdate,
-  ]);
+  }, [handlePriceUpdate, handleOrderBookUpdate]);
 
   // Handle order submission
   const handleSubmitOrder = async (e: React.FormEvent) => {
@@ -192,7 +202,7 @@ export default function AssetDetailPage({
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <p className="text-gray-500">Loading asset details...</p>
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
@@ -221,20 +231,20 @@ export default function AssetDetailPage({
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+      <Card className="mb-8">
         <div className="flex flex-wrap justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold">{asset.name}</h1>
             <p className="text-gray-500">{asset.symbol}</p>
           </div>
-          <div>
-            <span className="bg-green-100 text-green-800 text-sm px-3 py-1 rounded">
-              {asset.asset_type}
-            </span>
+          <div className="flex gap-2">
+            <StatusBadge
+              status={asset.asset_type}
+              variant="success"
+              size="sm"
+            />
             {asset.requires_kyc && (
-              <span className="bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded ml-2">
-                KYC Required
-              </span>
+              <StatusBadge status="KYC Required" variant="neutral" size="sm" />
             )}
           </div>
         </div>
@@ -255,12 +265,12 @@ export default function AssetDetailPage({
             <p className="text-gray-700">{asset.description}</p>
           </div>
         )}
-      </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Order Book */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <Card>
             <h2 className="text-xl font-semibold mb-4">Order Book</h2>
 
             <div className="grid grid-cols-2 gap-4">
@@ -287,9 +297,11 @@ export default function AssetDetailPage({
                         </div>
                       ))
                     ) : (
-                      <p className="text-gray-500 text-sm py-2">
-                        No buy orders
-                      </p>
+                      <div className="py-4">
+                        <p className="text-gray-500 text-sm text-center">
+                          No buy orders
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -318,20 +330,22 @@ export default function AssetDetailPage({
                         </div>
                       ))
                     ) : (
-                      <p className="text-gray-500 text-sm py-2">
-                        No sell orders
-                      </p>
+                      <div className="py-4">
+                        <p className="text-gray-500 text-sm text-center">
+                          No sell orders
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
         {/* Order Form */}
         <div>
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <Card>
             <h2 className="text-xl font-semibold mb-4">Place Order</h2>
 
             {isTrialUser && (
@@ -378,28 +392,20 @@ export default function AssetDetailPage({
                   Order Type
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
+                  <Button
                     type="button"
-                    className={`py-2 px-4 rounded-md text-center ${
-                      orderType === "BUY"
-                        ? "bg-green-600 text-white"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    }`}
+                    variant={orderType === "BUY" ? "primary" : "secondary"}
                     onClick={() => setOrderType("BUY")}
                   >
                     Buy
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className={`py-2 px-4 rounded-md text-center ${
-                      orderType === "SELL"
-                        ? "bg-red-600 text-white"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    }`}
+                    variant={orderType === "SELL" ? "danger" : "secondary"}
                     onClick={() => setOrderType("SELL")}
                   >
                     Sell
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -410,14 +416,13 @@ export default function AssetDetailPage({
                 >
                   Quantity
                 </label>
-                <input
+                <FormInput
                   type="number"
                   id="quantity"
-                  min="0.01"
-                  step="0.01"
+                  min={0.01}
+                  step={0.01}
                   value={quantity}
-                  onChange={(e) => setQuantity(parseFloat(e.target.value))}
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring focus:ring-green-200"
+                  onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
                   required
                 />
               </div>
@@ -429,14 +434,13 @@ export default function AssetDetailPage({
                 >
                   Price ($)
                 </label>
-                <input
+                <FormInput
                   type="number"
                   id="price"
-                  min="0.01"
-                  step="0.01"
+                  min={0.01}
+                  step={0.01}
                   value={price}
-                  onChange={(e) => setPrice(parseFloat(e.target.value))}
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring focus:ring-green-200"
+                  onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
                   required
                 />
               </div>
@@ -450,13 +454,11 @@ export default function AssetDetailPage({
                 </p>
               </div>
 
-              <button
+              <Button
                 type="submit"
-                className={`w-full py-2 px-4 rounded-md text-white font-medium ${
-                  orderType === "BUY"
-                    ? "bg-green-600 hover:bg-green-700"
-                    : "bg-red-600 hover:bg-red-700"
-                }`}
+                variant={orderType === "BUY" ? "primary" : "danger"}
+                size="lg"
+                className="w-full"
                 disabled={
                   isSubmitting ||
                   isTrialUser ||
@@ -466,9 +468,9 @@ export default function AssetDetailPage({
                 {isSubmitting
                   ? "Processing..."
                   : `Place ${orderType === "BUY" ? "Buy" : "Sell"} Order`}
-              </button>
+              </Button>
             </form>
-          </div>
+          </Card>
         </div>
       </div>
     </div>

@@ -13,7 +13,7 @@ import {
   isAuthenticated,
   getUserFromToken,
 } from "./auth";
-import { fetchUserData } from "./api";
+import { fetchUserData, fetchKYCStatus } from "./api";
 import { reconnectWithAuth } from "./socket";
 
 interface User {
@@ -26,8 +26,20 @@ interface User {
   subscription_type: string;
 }
 
+interface KYCStatus {
+  status: string;
+  kyc_level: string;
+  submitted_at?: string;
+  rejection_reason?: string;
+  documents_count: number;
+  can_submit: boolean;
+  required_documents: string[];
+  next_steps: string[];
+}
+
 interface AuthContextType {
   user: User | null;
+  kycStatus: KYCStatus | null;
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<boolean>;
@@ -41,6 +53,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [kycStatus, setKycStatus] = useState<KYCStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,12 +62,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     try {
       const userData = await fetchUserData();
       setUser(userData);
+
+      // Also fetch KYC status
+      try {
+        const kycData = await fetchKYCStatus();
+        setKycStatus(kycData);
+      } catch (kycError) {
+        console.error("Error fetching KYC status:", kycError);
+        setKycStatus(null);
+      }
+
       return userData;
     } catch (error) {
       console.error("Error fetching user data:", error);
       // Fall back to basic user data from token
       const tokenUser = getUserFromToken();
       setUser(tokenUser);
+      setKycStatus(null);
       return tokenUser;
     }
   };
@@ -109,6 +133,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const logout = () => {
     authLogout();
     setUser(null);
+    setKycStatus(null);
     // Reconnect socket without authentication
     reconnectWithAuth();
   };
@@ -127,6 +152,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const value = {
     user,
+    kycStatus,
     loading,
     error,
     login,

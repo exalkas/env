@@ -1,5 +1,5 @@
 import { fetchWithAuth } from "../utils/auth";
-import { API_URL } from "../config";
+import { API_BASE_URL } from "../config";
 
 // Asset interfaces
 export interface Asset {
@@ -76,7 +76,9 @@ export interface CreateOrderPayload {
 export const MarketApi = {
   // Asset endpoints
   getAssets: async (): Promise<Asset[]> => {
-    const response = await fetchWithAuth(`${API_URL}/market/assets/`);
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/api/v1/market/assets/`
+    );
     if (!response.ok) {
       throw new Error("Failed to fetch assets");
     }
@@ -84,7 +86,9 @@ export const MarketApi = {
   },
 
   getAsset: async (assetId: number): Promise<Asset> => {
-    const response = await fetchWithAuth(`${API_URL}/market/assets/${assetId}`);
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/api/v1/market/assets/${assetId}`
+    );
     if (!response.ok) {
       throw new Error("Failed to fetch asset");
     }
@@ -94,8 +98,8 @@ export const MarketApi = {
   // Order endpoints
   getOrders: async (status?: string): Promise<Order[]> => {
     const url = status
-      ? `${API_URL}/market/orders/?status=${status}`
-      : `${API_URL}/market/orders/`;
+      ? `${API_BASE_URL}/api/v1/orders/?status=${status}`
+      : `${API_BASE_URL}/api/v1/orders/`;
 
     const response = await fetchWithAuth(url);
     if (!response.ok) {
@@ -105,7 +109,9 @@ export const MarketApi = {
   },
 
   getOrder: async (orderId: number): Promise<Order> => {
-    const response = await fetchWithAuth(`${API_URL}/market/orders/${orderId}`);
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/api/v1/orders/${orderId}`
+    );
     if (!response.ok) {
       throw new Error("Failed to fetch order");
     }
@@ -113,7 +119,7 @@ export const MarketApi = {
   },
 
   createOrder: async (order: CreateOrderPayload): Promise<Order> => {
-    const response = await fetchWithAuth(`${API_URL}/market/orders/`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/orders/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -131,7 +137,7 @@ export const MarketApi = {
 
   cancelOrder: async (orderId: number): Promise<Order> => {
     const response = await fetchWithAuth(
-      `${API_URL}/market/orders/${orderId}/cancel`,
+      `${API_BASE_URL}/api/v1/orders/${orderId}/cancel`,
       {
         method: "PUT",
       }
@@ -147,7 +153,7 @@ export const MarketApi = {
   // Market data endpoints
   getOrderBook: async (assetId: number): Promise<OrderBook> => {
     const response = await fetchWithAuth(
-      `${API_URL}/market/market/orderbook/${assetId}`
+      `${API_BASE_URL}/api/v1/market/orderbook/${assetId}`
     );
     if (!response.ok) {
       throw new Error("Failed to fetch order book");
@@ -157,7 +163,9 @@ export const MarketApi = {
 
   // Transaction endpoints
   getTransactions: async (): Promise<Transaction[]> => {
-    const response = await fetchWithAuth(`${API_URL}/market/transactions/`);
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/api/v1/market/transactions/`
+    );
     if (!response.ok) {
       throw new Error("Failed to fetch transactions");
     }

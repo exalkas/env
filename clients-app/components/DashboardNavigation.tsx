@@ -28,8 +28,8 @@ const navigation = [
   { name: "Market", href: "/market", icon: ChartBarSquareIcon },
   { name: "News", href: "/news", icon: NewspaperIcon },
   { name: "Orders", href: "/orders", icon: ClipboardDocumentListIcon },
-  { name: "Transactions", href: "/transactions", icon: CreditCardIcon },
-  { name: "Portfolio", href: "/portfolio", icon: BriefcaseIcon },
+  { name: "KYC Verification", href: "/kyc", icon: ShieldCheckIcon },
+  { name: "Payments", href: "/payments/history", icon: CreditCardIcon },
 ];
 
 // Education navigation items
@@ -50,13 +50,50 @@ interface DashboardNavigationProps {
   setMobileMenuOpen?: (open: boolean) => void;
 }
 
+// Helper function to get KYC status styling
+const getKYCStatusStyle = (status?: string) => {
+  switch (status) {
+    case "approved":
+      return "bg-green-100 text-green-800";
+    case "submitted":
+    case "under_review":
+      return "bg-yellow-100 text-yellow-800";
+    case "rejected":
+      return "bg-red-100 text-red-800";
+    case "in_progress":
+      return "bg-blue-100 text-blue-800";
+    case "not_started":
+    default:
+      return "bg-gray-100 text-gray-800";
+  }
+};
+
+// Helper function to get KYC status text
+const getKYCStatusText = (status?: string) => {
+  switch (status) {
+    case "approved":
+      return "KYC ✓";
+    case "submitted":
+      return "KYC Pending";
+    case "under_review":
+      return "Under Review";
+    case "rejected":
+      return "KYC Rejected";
+    case "in_progress":
+      return "KYC In Progress";
+    case "not_started":
+    default:
+      return "KYC Required";
+  }
+};
+
 export default function DashboardNavigation({
   isMobile = false,
   mobileMenuOpen = false,
   setMobileMenuOpen,
 }: DashboardNavigationProps) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, kycStatus, logout } = useAuth();
   const [isExpanded, setIsExpanded] = useState(true);
 
   // Load drawer state from localStorage on mount (only for desktop)
@@ -152,11 +189,13 @@ export default function DashboardNavigation({
                       >
                         {user.subscription_type || "Free"}
                       </span>
-                      {user.kyc_verified && (
-                        <span className="ml-2 inline-flex px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                          KYC ✓
-                        </span>
-                      )}
+                      <span
+                        className={`ml-2 inline-flex px-2 py-1 text-xs rounded-full ${getKYCStatusStyle(
+                          kycStatus?.status
+                        )}`}
+                      >
+                        {getKYCStatusText(kycStatus?.status)}
+                      </span>
                     </div>
                   </div>
                 )}

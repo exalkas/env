@@ -28,6 +28,9 @@ class User(Base):
     learning_progress = relationship("UserProgress", back_populates="user")
     assessment_attempts = relationship("UserAssessmentAttempt", back_populates="user")
     certificates = relationship("Certificate", back_populates="user")
+    kyc_submissions = relationship("KYCSubmission", foreign_keys="KYCSubmission.user_id", back_populates="user")
+    created_templates = relationship("EmailTemplate", back_populates="creator")
+    email_logs = relationship("EmailActionLog", back_populates="user")
     
     @property
     def is_admin(self):

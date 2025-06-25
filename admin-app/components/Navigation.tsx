@@ -9,6 +9,7 @@ import {
   UsersIcon,
   CubeIcon,
   CreditCardIcon,
+  BanknotesIcon,
   NewspaperIcon,
   ChatBubbleLeftRightIcon,
   ArrowRightOnRectangleIcon,
@@ -26,13 +27,21 @@ import {
   TagIcon,
   Bars3Icon,
   ChevronLeftIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  EnvelopeIcon,
+  BoltIcon,
+  ChartPieIcon,
+  CogIcon as CogIcon2,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: HomeIcon },
   { name: "Users", href: "/users", icon: UsersIcon },
+  { name: "KYC Reviews", href: "/kyc", icon: ShieldCheckIcon },
   { name: "Assets", href: "/assets", icon: CubeIcon },
   { name: "Transactions", href: "/transactions", icon: CreditCardIcon },
+  { name: "Payments", href: "/payments", icon: BanknotesIcon },
   { name: "News", href: "/news", icon: NewspaperIcon },
   { name: "Orders", href: "/orders", icon: ChatBubbleLeftRightIcon },
   {
@@ -88,12 +97,31 @@ const adminNavigation = [
 // Super admin only navigation items
 const superAdminNavigation = [{ name: "Roles", href: "/roles", icon: CogIcon }];
 
+// Email Management navigation items
+const emailNavigation = [
+  { name: "Email Overview", href: "/email-management", icon: ChartPieIcon },
+  {
+    name: "Templates",
+    href: "/email-management/templates",
+    icon: DocumentTextIcon,
+  },
+  { name: "Actions", href: "/email-management/actions", icon: BoltIcon },
+  {
+    name: "Logs",
+    href: "/email-management/logs",
+    icon: ClipboardDocumentListIcon,
+  },
+  { name: "Settings", href: "/email-management/settings", icon: CogIcon2 },
+];
+
 export default function Navigation() {
   const pathname = usePathname();
   const router = useRouter();
   const currentUser = getUser();
   const [isExpanded, setIsExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [isEducationCollapsed, setIsEducationCollapsed] = useState(false);
+  const [isEmailCollapsed, setIsEmailCollapsed] = useState(false);
 
   // Check if screen is mobile size
   useEffect(() => {
@@ -112,6 +140,19 @@ export default function Navigation() {
       const savedState = localStorage.getItem("navigation-expanded");
       if (savedState !== null) {
         setIsExpanded(JSON.parse(savedState));
+      }
+
+      // Load section collapse states
+      const educationState = localStorage.getItem(
+        "education-section-collapsed"
+      );
+      if (educationState !== null) {
+        setIsEducationCollapsed(JSON.parse(educationState));
+      }
+
+      const emailState = localStorage.getItem("email-section-collapsed");
+      if (emailState !== null) {
+        setIsEmailCollapsed(JSON.parse(emailState));
       }
     } else {
       // On mobile, default to collapsed
@@ -138,6 +179,21 @@ export default function Navigation() {
     if (isMobile && isExpanded) {
       setIsExpanded(false);
     }
+  };
+
+  const toggleEducationSection = () => {
+    const newState = !isEducationCollapsed;
+    setIsEducationCollapsed(newState);
+    localStorage.setItem(
+      "education-section-collapsed",
+      JSON.stringify(newState)
+    );
+  };
+
+  const toggleEmailSection = () => {
+    const newState = !isEmailCollapsed;
+    setIsEmailCollapsed(newState);
+    localStorage.setItem("email-section-collapsed", JSON.stringify(newState));
   };
 
   const allNavigation = [
@@ -249,56 +305,87 @@ export default function Navigation() {
 
             {/* Education Section */}
             <li className="mt-6">
-              {isExpanded && (
-                <div className="text-xs font-semibold leading-6 text-gray-400 uppercase px-3 mb-2">
-                  Education
-                </div>
-              )}
-              <ul
-                className={`space-y-1 ${
-                  !isExpanded ? "border-t border-gray-700 pt-2" : ""
-                }`}
-              >
-                {educationNavigation.map((item) => {
-                  const isActive =
-                    pathname === item.href ||
-                    (item.href === "/education/learning-paths" &&
-                      pathname.includes("/education/learning-paths")) ||
-                    (item.href === "/education/modules" &&
-                      pathname.includes("/education/modules")) ||
-                    (item.href === "/education/lessons" &&
-                      pathname.includes("/education/lessons")) ||
-                    (item.href === "/education/questions" &&
-                      pathname.includes("/education/questions")) ||
-                    (item.href === "/education/question-categories" &&
-                      pathname.includes("/education/question-categories")) ||
-                    (item.href === "/education/assessments" &&
-                      pathname.includes("/education/assessments")) ||
-                    (item.href === "/education/glossary" &&
-                      pathname.includes("/education/glossary")) ||
-                    (item.href === "/education/analytics" &&
-                      pathname.includes("/education/analytics"));
+              {isExpanded ? (
+                <>
+                  <button
+                    onClick={toggleEducationSection}
+                    className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold leading-6 text-gray-400 uppercase hover:text-white transition-colors"
+                  >
+                    <span>Education</span>
+                    {isEducationCollapsed ? (
+                      <ChevronRightIcon className="h-4 w-4" />
+                    ) : (
+                      <ChevronDownIcon className="h-4 w-4" />
+                    )}
+                  </button>
+                  {!isEducationCollapsed && (
+                    <ul className="space-y-1 mt-2">
+                      {educationNavigation.map((item) => {
+                        const isActive =
+                          pathname === item.href ||
+                          (item.href === "/education/learning-paths" &&
+                            pathname.includes("/education/learning-paths")) ||
+                          (item.href === "/education/modules" &&
+                            pathname.includes("/education/modules")) ||
+                          (item.href === "/education/lessons" &&
+                            pathname.includes("/education/lessons")) ||
+                          (item.href === "/education/questions" &&
+                            pathname.includes("/education/questions")) ||
+                          (item.href === "/education/question-categories" &&
+                            pathname.includes(
+                              "/education/question-categories"
+                            )) ||
+                          (item.href === "/education/assessments" &&
+                            pathname.includes("/education/assessments")) ||
+                          (item.href === "/education/glossary" &&
+                            pathname.includes("/education/glossary")) ||
+                          (item.href === "/education/analytics" &&
+                            pathname.includes("/education/analytics"));
 
-                  if (isExpanded) {
+                        return (
+                          <li key={item.name}>
+                            <Link
+                              href={item.href}
+                              onClick={handleNavItemClick}
+                              className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                                isActive
+                                  ? "bg-gray-900 text-white"
+                                  : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                              }`}
+                            >
+                              <item.icon className="h-5 w-5 mr-3 flex-shrink-0" />
+                              <span className="truncate">{item.name}</span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </>
+              ) : (
+                <div className="border-t border-gray-700 pt-2">
+                  {educationNavigation.map((item) => {
+                    const isActive =
+                      pathname === item.href ||
+                      (item.href === "/education/learning-paths" &&
+                        pathname.includes("/education/learning-paths")) ||
+                      (item.href === "/education/modules" &&
+                        pathname.includes("/education/modules")) ||
+                      (item.href === "/education/lessons" &&
+                        pathname.includes("/education/lessons")) ||
+                      (item.href === "/education/questions" &&
+                        pathname.includes("/education/questions")) ||
+                      (item.href === "/education/question-categories" &&
+                        pathname.includes("/education/question-categories")) ||
+                      (item.href === "/education/assessments" &&
+                        pathname.includes("/education/assessments")) ||
+                      (item.href === "/education/glossary" &&
+                        pathname.includes("/education/glossary")) ||
+                      (item.href === "/education/analytics" &&
+                        pathname.includes("/education/analytics"));
+
                     return (
-                      <li key={item.name}>
-                        <Link
-                          href={item.href}
-                          onClick={handleNavItemClick}
-                          className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                            isActive
-                              ? "bg-gray-900 text-white"
-                              : "text-gray-300 hover:bg-gray-700 hover:text-white"
-                          }`}
-                        >
-                          <item.icon className="h-5 w-5 mr-3 flex-shrink-0" />
-                          <span className="truncate">{item.name}</span>
-                        </Link>
-                      </li>
-                    );
-                  } else {
-                    return (
-                      <li key={item.name}>
+                      <div key={item.name} className="mb-1">
                         <Link
                           href={item.href}
                           className={`flex items-center justify-center p-2 rounded-md transition-colors group relative ${
@@ -309,16 +396,87 @@ export default function Navigation() {
                           title={item.name}
                         >
                           <item.icon className="h-5 w-5" />
-                          {/* Tooltip for collapsed state */}
                           <span className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
                             {item.name}
                           </span>
                         </Link>
-                      </li>
+                      </div>
                     );
-                  }
-                })}
-              </ul>
+                  })}
+                </div>
+              )}
+            </li>
+
+            {/* Email Management Section */}
+            <li className="mt-6">
+              {isExpanded ? (
+                <>
+                  <button
+                    onClick={toggleEmailSection}
+                    className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold leading-6 text-gray-400 uppercase hover:text-white transition-colors"
+                  >
+                    <span>Email Management</span>
+                    {isEmailCollapsed ? (
+                      <ChevronRightIcon className="h-4 w-4" />
+                    ) : (
+                      <ChevronDownIcon className="h-4 w-4" />
+                    )}
+                  </button>
+                  {!isEmailCollapsed && (
+                    <ul className="space-y-1 mt-2">
+                      {emailNavigation.map((item) => {
+                        const isActive =
+                          pathname === item.href ||
+                          pathname.includes("/email-management");
+
+                        return (
+                          <li key={item.name}>
+                            <Link
+                              href={item.href}
+                              onClick={handleNavItemClick}
+                              className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                                isActive
+                                  ? "bg-gray-900 text-white"
+                                  : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                              }`}
+                            >
+                              <item.icon className="h-5 w-5 mr-3 flex-shrink-0" />
+                              <span className="truncate">{item.name}</span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </>
+              ) : (
+                <div className="border-t border-gray-700 pt-2">
+                  {emailNavigation.map((item) => {
+                    const isActive =
+                      pathname === item.href ||
+                      pathname.includes("/email-management");
+
+                    return (
+                      <div key={item.name} className="mb-1">
+                        <Link
+                          href={item.href}
+                          className={`flex items-center justify-center p-2 rounded-md transition-colors group relative ${
+                            isActive
+                              ? "bg-gray-900 text-white"
+                              : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                          }`}
+                          title={item.name}
+                        >
+                          <item.icon className="h-5 w-5" />
+                          <span className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                            {item.name}
+                          </span>
+                        </Link>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </li>
           </ul>
         </nav>

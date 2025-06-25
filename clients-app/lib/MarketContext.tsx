@@ -101,12 +101,14 @@ export const MarketProvider: React.FC<{ children: ReactNode }> = ({
   const initializeMarketData = async () => {
     if (isInitialized) return;
 
+    console.log("Initializing market data...");
     setLoading(true);
     setError(null);
 
     try {
       // Fetch initial market data
       const marketData = await fetchMarketData();
+      console.log("Market data received:", marketData);
 
       // Update state with initial data
       if (marketData.prices) {
@@ -115,10 +117,18 @@ export const MarketProvider: React.FC<{ children: ReactNode }> = ({
           pricesMap[price.id] = price;
         });
         setAssetPrices(pricesMap);
+        console.log(
+          "Asset prices updated:",
+          Object.keys(pricesMap).length,
+          "assets"
+        );
       }
 
       if (marketData.news) {
         setLatestNews(marketData.news);
+        console.log("Latest news updated:", marketData.news.length, "articles");
+      } else {
+        console.warn("No news data in market response");
       }
 
       if (marketData.trades) {
@@ -139,6 +149,7 @@ export const MarketProvider: React.FC<{ children: ReactNode }> = ({
       setupSocketListeners();
 
       setIsInitialized(true);
+      console.log("Market data initialization complete");
     } catch (err) {
       console.error("Error initializing market data:", err);
       setError("Failed to load market data");

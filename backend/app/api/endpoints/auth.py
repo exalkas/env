@@ -1,5 +1,6 @@
 from datetime import timedelta
 from typing import Any
+import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -10,6 +11,7 @@ from app.api import deps
 from app.core import security
 from app.core.config import settings
 from app.db.session import get_db
+from app.services.email_service import EmailNotifications
 
 router = APIRouter()
 
@@ -149,4 +151,21 @@ def create_user_signup(
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+    
+    # Trigger welcome email action asynchronously
+    try:
+        from app.services.email_service import EmailService
+        email_service = EmailService()
+        asyncio.create_task(
+            email_service.trigger_email_action(
+                db=db, 
+                trigger_event="after_user_signup", 
+                user_id=db_user.id,
+                trigger_data={"signup_method": "web", "registration_time": db_user.created_at.isoformat()}
+            )
+        )
+    except Exception as e:
+        # Log error but don't fail signup
+        print(f"Failed to trigger welcome email action: {e}")
+    
     return db_user 

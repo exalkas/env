@@ -10,6 +10,7 @@ interface FormSelectProps {
   error?: string;
   className?: string;
   children: React.ReactNode;
+  label?: string;
 }
 
 export default function FormSelect({
@@ -22,6 +23,7 @@ export default function FormSelect({
   error,
   className = "",
   children,
+  label,
 }: FormSelectProps) {
   const baseClasses = `
     mt-1 block w-full px-3 py-2 
@@ -39,16 +41,24 @@ export default function FormSelect({
     : "border-gray-300";
 
   return (
-    <select
-      id={id}
-      name={name || id}
-      value={value}
-      onChange={onChange}
-      disabled={disabled}
-      required={required}
-      className={`${baseClasses} ${borderClasses} ${className}`}
-    >
-      {children}
-    </select>
+    <div>
+      {label && (
+        <label className="block text-sm font-medium mb-1 text-gray-700">
+          {label}
+        </label>
+      )}
+      <select
+        id={id}
+        name={name || id}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        required={required}
+        className={`${baseClasses} ${borderClasses} ${className}`}
+      >
+        {children}
+      </select>
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+    </div>
   );
 }

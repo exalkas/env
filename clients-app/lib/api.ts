@@ -55,11 +55,23 @@ export const fetchAssetById = async (assetId: string) => {
 // Market Data API
 export const fetchMarketData = async (assetType?: string) => {
   try {
-    const url = assetType
+    // Fetch assets
+    const assetsUrl = assetType
       ? `/v1/market/assets?type=${assetType}`
       : "/v1/market/assets";
-    const response = await api.get(url);
-    return response.data;
+    const assetsResponse = await api.get(assetsUrl);
+
+    // Fetch latest news for dashboard
+    const newsResponse = await api.get(
+      "/v1/news/?published_only=true&limit=10"
+    );
+
+    return {
+      prices: assetsResponse.data || [],
+      news: newsResponse.data?.news || [],
+      trades: {}, // placeholder for trade data
+      orderBooks: {}, // placeholder for order book data
+    };
   } catch (error) {
     console.error("Error fetching market data:", error);
     throw error;
@@ -193,6 +205,43 @@ export const fetchPublicSubscriptions = async () => {
     return response.data;
   } catch (error) {
     console.error("Error fetching subscription plans:", error);
+    throw error;
+  }
+};
+
+// Dedicated news API function
+export const fetchNews = async (params?: {
+  category?: string;
+  featured_only?: boolean;
+  search?: string;
+  published_only?: boolean;
+  limit?: number;
+}) => {
+  try {
+    const searchParams = new URLSearchParams();
+
+    if (params?.category) searchParams.append("category", params.category);
+    if (params?.featured_only) searchParams.append("featured_only", "true");
+    if (params?.search) searchParams.append("search", params.search);
+    if (params?.published_only) searchParams.append("published_only", "true");
+    if (params?.limit) searchParams.append("limit", params.limit.toString());
+
+    const url = `/v1/news/?${searchParams.toString()}`;
+    const response = await api.get(url);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching news:", error);
+    throw error;
+  }
+};
+
+// KYC API
+export const fetchKYCStatus = async () => {
+  try {
+    const response = await api.get("/v1/kyc/my-kyc");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching KYC status:", error);
     throw error;
   }
 };

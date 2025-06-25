@@ -181,4 +181,162 @@ def create_trial_subscription(
     
     db.commit()
     db.refresh(subscription)
-    return subscription 
+    return subscription
+
+# ============================================================================
+# CLIENT-FACING SUBSCRIPTION ENDPOINTS
+# ============================================================================
+
+@router.get("/available", response_model=List[schemas.Subscription])
+def get_available_subscriptions_for_clients(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_user),
+) -> Any:
+    """Get available subscription plans for clients"""
+    subscriptions = crud_subscription.subscription.get_active(db)
+    return subscriptions
+
+@router.get("/current")
+def get_current_user_subscription(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_user),
+) -> Any:
+    """Get current user's subscription details"""
+    
+    # For demo purposes, return mock subscription data
+    # In production, you would query the user's actual subscription
+    if current_user.subscription_type and current_user.subscription_type != "free":
+        # Find the subscription plan
+        subscription_plan = crud_subscription.subscription.get_by_name(
+            db, name=current_user.subscription_type
+        )
+        
+        if subscription_plan:
+            return {
+                "id": 1,  # Mock user subscription ID
+                "user_id": current_user.id,
+                "subscription_id": subscription_plan.id,
+                "status": "active",
+                "start_date": "2024-01-01T00:00:00Z",
+                "end_date": current_user.subscription_end_date.isoformat() if current_user.subscription_end_date else None,
+                "auto_renew": True,
+                "subscription": subscription_plan
+            }
+    
+    return None
+
+@router.post("/upgrade")
+def upgrade_user_subscription(
+    *,
+    db: Session = Depends(get_db),
+    subscription_id: int,
+    payment_method_id: int,
+    current_user: models.User = Depends(deps.get_current_user),
+) -> Any:
+    """Upgrade user's subscription after successful payment"""
+    
+    # Get the subscription plan
+    subscription_plan = crud_subscription.subscription.get(db, id=subscription_id)
+    if not subscription_plan:
+        raise HTTPException(status_code=404, detail="Subscription plan not found")
+    
+    if not subscription_plan.is_active:
+        raise HTTPException(status_code=400, detail="Subscription plan is not active")
+    
+    # Verify that there's a successful payment for this subscription
+    from app.models.payment import PaymentTransaction, PaymentMethod
+    
+    # Find the most recent successful transaction for this subscription and user
+    successful_transaction = db.query(PaymentTransaction).filter(
+        and_(
+            PaymentTransaction.user_id == current_user.id,
+            PaymentTransaction.subscription_id == subscription_id,
+            PaymentTransaction.payment_method_id == payment_method_id,
+            PaymentTransaction.status == "completed"
+        )
+    ).order_by(PaymentTransaction.created_at.desc()).first()
+    
+    if not successful_transaction:
+        # Check for pending transactions that might have succeeded
+        pending_transaction = db.query(PaymentTransaction).filter(
+            and_(
+                PaymentTransaction.user_id == current_user.id,
+                PaymentTransaction.subscription_id == subscription_id,
+                PaymentTransaction.payment_method_id == payment_method_id,
+                PaymentTransaction.status == "pending"
+            )
+        ).order_by(PaymentTransaction.created_at.desc()).first()
+        
+        if pending_transaction:
+            # For bank transfers, allow upgrade with pending status
+            payment_method = db.query(PaymentMethod).filter(PaymentMethod.id == payment_method_id).first()
+            if payment_method and payment_method.type != "bank_transfer":
+                raise HTTPException(
+                    status_code=400, 
+                    detail="No successful payment found for this subscription upgrade"
+                )
+        else:
+            raise HTTPException(
+                status_code=400, 
+                detail="No payment found for this subscription upgrade"
+            )
+    
+    # Update user subscription
+    current_user.subscription_type = subscription_plan.name
+    
+    # Calculate subscription end date
+    start_date = datetime.utcnow()
+    if hasattr(subscription_plan, 'duration_months') and subscription_plan.duration_months:
+        # Calculate months properly
+        end_date = start_date + timedelta(days=subscription_plan.duration_months * 30)
+    elif hasattr(subscription_plan, 'duration_days') and subscription_plan.duration_days:
+        end_date = start_date + timedelta(days=subscription_plan.duration_days)
+    else:
+        # Default to 1 month
+        end_date = start_date + timedelta(days=30)
+    
+    current_user.subscription_end_date = end_date
+    
+    # Update transaction with subscription details if needed
+    if successful_transaction:
+        successful_transaction.notes = f"Subscription upgraded to {subscription_plan.name}"
+    elif pending_transaction:
+        pending_transaction.notes = f"Subscription upgrade pending for {subscription_plan.name}"
+    
+    db.commit()
+    
+    # Return response with actual subscription details
+    return {
+        "subscription": {
+            "id": current_user.id,  # Using user ID as subscription ID for simplicity
+            "user_id": current_user.id,
+            "subscription_id": subscription_plan.id,
+            "status": "active" if successful_transaction else "pending",
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "auto_renew": True,
+            "subscription": subscription_plan
+        },
+        "payment_status": "completed" if successful_transaction else "pending"
+    }
+
+@router.post("/cancel")
+def cancel_user_subscription(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_user),
+) -> Any:
+    """Cancel user's subscription"""
+    
+    if not current_user.subscription_type or current_user.subscription_type == "free":
+        raise HTTPException(status_code=400, detail="No active subscription to cancel")
+    
+    # For demo purposes, simulate cancellation
+    # In production, you would:
+    # 1. Cancel recurring payments
+    # 2. Set subscription to cancel at period end
+    # 3. Send confirmation email
+    
+    # For now, we'll just mark it as cancelled at the end date
+    # In a real system, you'd typically let it run until the end of the billing period
+    
+    return {"message": "Subscription will be cancelled at the end of the current billing period"} 

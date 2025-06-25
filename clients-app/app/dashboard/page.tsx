@@ -3,13 +3,21 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { useMarket } from "@/lib/MarketContext";
+import { fetchNews } from "@/lib/api";
 import Link from "next/link";
 
 interface DashboardStats {
   totalAssets: number;
-  portfolioValue: number;
   activeOrders: number;
   recentTransactions: number;
+}
+
+interface NewsItem {
+  id: number;
+  title: string;
+  summary: string;
+  source: string;
+  published_at: string;
 }
 
 export default function DashboardPage() {
@@ -17,17 +25,59 @@ export default function DashboardPage() {
   const { assetPrices, latestNews, loading } = useMarket();
   const [stats, setStats] = useState<DashboardStats>({
     totalAssets: 0,
-    portfolioValue: 0,
     activeOrders: 0,
     recentTransactions: 0,
   });
+  const [dashboardNews, setDashboardNews] = useState<NewsItem[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
+
+  // Debug logging
+  useEffect(() => {
+    console.log("Dashboard - Loading state:", loading);
+    console.log("Dashboard - Latest news:", latestNews);
+    console.log("Dashboard - Asset prices:", Object.keys(assetPrices).length);
+  }, [loading, latestNews, assetPrices]);
+
+  // Fallback news fetching if MarketContext doesn't provide news
+  useEffect(() => {
+    const loadNews = async () => {
+      if (latestNews.length === 0 && !loading) {
+        console.log("No news from MarketContext, fetching directly...");
+        setNewsLoading(true);
+        try {
+          const newsData = await fetchNews({
+            published_only: true,
+            limit: 4,
+          });
+          console.log("Direct news fetch result:", newsData);
+          setDashboardNews(newsData.news || []);
+        } catch (error) {
+          console.error("Failed to fetch news directly:", error);
+        } finally {
+          setNewsLoading(false);
+        }
+      } else if (latestNews.length > 0) {
+        // Use news from MarketContext
+        setDashboardNews(
+          latestNews.map((news) => ({
+            id: parseInt(news.id),
+            title: news.title,
+            summary: news.summary,
+            source: news.source,
+            published_at: news.published_at,
+          }))
+        );
+      }
+    };
+
+    loadNews();
+  }, [latestNews, loading]);
 
   useEffect(() => {
     // Calculate dashboard stats
     const assetCount = Object.keys(assetPrices).length;
     setStats({
       totalAssets: assetCount,
-      portfolioValue: 0, // This would come from user's portfolio API
       activeOrders: 0, // This would come from user's orders API
       recentTransactions: 0, // This would come from user's transactions API
     });
@@ -67,7 +117,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center">
             <div className="p-3 rounded-full bg-blue-100 text-blue-600">
@@ -99,40 +149,6 @@ export default function DashboardPage() {
             className="text-blue-500 text-sm mt-4 block hover:text-blue-700"
           >
             View market →
-          </Link>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-100 text-green-600">
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <h2 className="text-lg font-semibold text-gray-600">
-                Portfolio Value
-              </h2>
-              <p className="text-3xl font-bold text-gray-900">
-                {formatCurrency(stats.portfolioValue)}
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/portfolio"
-            className="text-green-500 text-sm mt-4 block hover:text-green-700"
-          >
-            View portfolio →
           </Link>
         </div>
 
@@ -231,17 +247,20 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-right">
                     <p className="font-medium text-gray-900">
-                      €{asset.price.toFixed(2)}
+                      €{asset.price ? asset.price.toFixed(2) : "0.00"}
                     </p>
                     <p
                       className={`text-sm ${
-                        asset.change_percentage_24h >= 0
+                        (asset.change_percentage_24h || 0) >= 0
                           ? "text-green-600"
                           : "text-red-600"
                       }`}
                     >
-                      {asset.change_percentage_24h >= 0 ? "+" : ""}
-                      {asset.change_percentage_24h.toFixed(2)}%
+                      {(asset.change_percentage_24h || 0) >= 0 ? "+" : ""}
+                      {asset.change_percentage_24h
+                        ? asset.change_percentage_24h.toFixed(2)
+                        : "0.00"}
+                      %
                     </p>
                   </div>
                 </div>
@@ -264,30 +283,42 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="space-y-4">
-            {latestNews.slice(0, 4).map((news) => (
-              <div
-                key={news.id}
-                className="border-b border-gray-200 pb-4 last:border-b-0"
-              >
-                <h3 className="font-medium text-gray-900 mb-1 line-clamp-2">
-                  {news.title}
-                </h3>
-                <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                  {news.summary}
-                </p>
-                <div className="flex justify-between items-center">
-                  <p className="text-xs text-gray-500">{news.source}</p>
-                  <p className="text-xs text-gray-500">
-                    {formatDate(news.published_at)}
-                  </p>
-                </div>
+          {newsLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4">
+                {dashboardNews.slice(0, 4).map((news) => (
+                  <div
+                    key={news.id}
+                    className="border-b border-gray-200 pb-4 last:border-b-0"
+                  >
+                    <h3 className="font-medium text-gray-900 mb-1 line-clamp-2">
+                      {news.title}
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                      {news.summary}
+                    </p>
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs text-gray-500">
+                        {news.source || "Unknown Source"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {formatDate(news.published_at)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {latestNews.length === 0 && (
-            <p className="text-gray-500 text-center py-8">No news available</p>
+              {dashboardNews.length === 0 && !newsLoading && (
+                <p className="text-gray-500 text-center py-8">
+                  No news available
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>

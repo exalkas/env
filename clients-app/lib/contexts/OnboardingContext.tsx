@@ -58,7 +58,7 @@ const DEFAULT_STEPS: OnboardingStep[] = [
     id: "dashboard-overview",
     title: "Dashboard Overview 📊",
     description:
-      "You're currently on the Dashboard - your command center! Here you'll see portfolio stats, market updates, and quick actions. This gives you everything at a glance.",
+      "You're currently on the Dashboard - your command center! Here you'll see market updates, order statistics, and quick actions. This gives you everything at a glance.",
     target: "body",
     completed: false,
   },

@@ -12,4 +12,7 @@ from app.models.question_category import QuestionCategory
 from app.models.education import (
     LearningPath, Module, Lesson, GlossaryTerm, Assessment, 
     UserProgress, UserAssessmentAttempt, Certificate
-) 
+)
+from app.models.payment import PaymentGateway, PaymentMethod, PaymentTransaction, BankTransferDetails
+from app.models.kyc import KYCSubmission, KYCDocument, KYCAuditLog, KYCStatus, KYCLevel
+from app.models.email import EmailTemplate, EmailAction, EmailActionLog 

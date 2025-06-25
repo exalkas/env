@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% if action == "activated" %}
+{% set subject = "Subscription Activated - Welcome to " + plan_name + "!" %}
+{% elif action == "renewed" %}
+{% set subject = "Subscription Renewed - " + plan_name + " Plan" %}
+{% elif action == "cancelled" %}
+{% set subject = "Subscription Cancelled - We're Sorry to See You Go" %}
+{% elif action == "upgraded" %}
+{% set subject = "Subscription Upgraded - Welcome to " + plan_name + "!" %}
+{% elif action == "downgraded" %}
+{% set subject = "Subscription Changed - " + plan_name + " Plan" %}
+{% else %}
+{% set subject = "Subscription Update - " + plan_name %}
+{% endif %}
+
+{% block content %}
+<div class="greeting">Hello {{ user_name }},</div>
+
+{% if action == "activated" %}
+<div class="success-box">
+    <strong>🎉 Your {{ plan_name }} subscription has been activated!</strong><br>
+    You now have access to premium features and enhanced trading capabilities.
+</div>
+
+<div class="content-text">
+    Thank you for subscribing to our {{ plan_name }} plan. Here's what you can now access:
+</div>
+
+<ul class="feature-list">
+    <li>Enhanced trading limits and priority execution</li>
+    <li>Advanced market analytics and insights</li>
+    <li>Premium educational content and webinars</li>
+    <li>Priority customer support</li>
+    <li>Exclusive green energy investment opportunities</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ app_url }}/dashboard" class="btn btn-success">Explore Premium Features</a>
+</div>
+
+{% elif action == "renewed" %}
+<div class="info-box">
+    <strong>✅ Your {{ plan_name }} subscription has been renewed.</strong><br>
+    Your premium access continues without interruption.
+</div>
+
+<div class="content-text">
+    Thank you for continuing your journey with Emisify. Your subscription renewal ensures:
+</div>
+
+<ul class="feature-list">
+    <li>Uninterrupted access to premium features</li>
+    <li>Continued priority support</li>
+    <li>Latest platform updates and improvements</li>
+    <li>Ongoing access to exclusive opportunities</li>
+</ul>
+
+{% elif action == "cancelled" %}
+<div class="warning-box">
+    <strong>😔 Your subscription has been cancelled.</strong><br>
+    We're sorry to see you go. Your premium access will continue until the end of your billing period.
+</div>
+
+<div class="content-text">
+    We value your feedback! If you cancelled due to any issues, please let us know how we can improve by contacting
+    <a href="mailto:{{ support_email }}" style="color: #2563eb;">{{ support_email }}</a>.
+</div>
+
+<div class="info-box">
+    <strong>What happens next:</strong><br>
+    • Your account remains active until your billing period ends<br>
+    • You'll keep premium features until then<br>
+    • You can reactivate anytime<br>
+    • Your data and settings are preserved
+</div>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ app_url }}/upgrade" class="btn">Reactivate Subscription</a>
+</div>
+
+{% elif action == "upgraded" %}
+<div class="success-box">
+    <strong>🚀 Congratulations! You've upgraded to {{ plan_name }}!</strong><br>
+    You now have access to our most advanced features and capabilities.
+</div>
+
+<div class="content-text">
+    Your upgrade unlocks enhanced trading power and exclusive benefits:
+</div>
+
+<ul class="feature-list">
+    <li>Higher trading limits and faster execution</li>
+    <li>Advanced portfolio analytics and reporting</li>
+    <li>White-glove customer support</li>
+    <li>Early access to new features</li>
+    <li>VIP green energy investment opportunities</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ app_url }}/dashboard" class="btn btn-success">Explore New Features</a>
+</div>
+
+{% else %}
+<div class="info-box">
+    <strong>📋 Subscription Update</strong><br>
+    Your subscription to {{ plan_name }} has been {{ action }}.
+</div>
+
+<div class="content-text">
+    Thank you for being a valued member of the Emisify community. If you have any questions about your subscription,
+    please don't hesitate to reach out to our support team.
+</div>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ app_url }}/subscriptions" class="btn">Manage Subscription</a>
+</div>
+{% endif %}
+
+<div class="content-text">
+    You can always manage your subscription settings, view billing history, and update payment information in your
+    account dashboard.
+</div>
+
+<div class="content-text">
+    Thank you for choosing Emisify for your green energy trading needs!<br>
+    <strong>The Emisify Team</strong>
+</div>
+{% endblock %}

@@ -25,6 +25,26 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
 
+    # Email Settings
+    EMAIL_ENABLED: bool = True
+    SMTP_HOST: str = "smtp.emisify.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = "noreply@emisify.com"
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
+    
+    # Email Configuration
+    EMAIL_FROM_NAME: str = "Emisify Platform"
+    EMAIL_FROM_ADDRESS: str = "noreply@emisify.com"
+    EMAIL_SUPPORT_ADDRESS: str = "support@emisify.com"
+    EMAIL_ADMIN_ADDRESS: str = "admin@emisify.com"
+    
+    # Email Template Settings
+    EMAIL_TEMPLATES_DIR: str = "app/templates/email"
+    EMAIL_ASSETS_URL: str = "https://emisify.com/assets"
+    COMPANY_LOGO_URL: str = "https://emisify.com/logo.png"
+
     # Database Settings
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_USER: str = "emisify"
@@ -51,6 +71,10 @@ class Settings(BaseSettings):
     # OpenAI Settings
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o"
+
+    # Stripe Settings
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
 
     # Domain Settings
     ADMIN_DOMAIN: str = "admin.emisify.com"

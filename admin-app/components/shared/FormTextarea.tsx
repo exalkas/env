@@ -11,6 +11,7 @@ interface FormTextareaProps {
   error?: string;
   rows?: number;
   className?: string;
+  label?: string;
 }
 
 export default function FormTextarea({
@@ -24,6 +25,7 @@ export default function FormTextarea({
   error,
   rows = 3,
   className = "",
+  label,
 }: FormTextareaProps) {
   const baseClasses = `
     mt-1 block w-full px-3 py-2 
@@ -41,16 +43,24 @@ export default function FormTextarea({
     : "border-gray-300";
 
   return (
-    <textarea
-      id={id}
-      name={name || id}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      disabled={disabled}
-      required={required}
-      rows={rows}
-      className={`${baseClasses} ${borderClasses} ${className}`}
-    />
+    <div>
+      {label && (
+        <label className="block text-sm font-medium mb-1 text-gray-700">
+          {label}
+        </label>
+      )}
+      <textarea
+        id={id}
+        name={name || id}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        disabled={disabled}
+        required={required}
+        rows={rows}
+        className={`${baseClasses} ${borderClasses} ${className}`}
+      />
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+    </div>
   );
 }

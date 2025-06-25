@@ -79,4 +79,7 @@ logs/
 # Misc
 .DS_Store
 .vercel
-.turbo 
+.turbo
+
+# Uploaded files (contains sensitive user documents)
+backend/uploads/ 
