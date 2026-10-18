@@ -212,20 +212,8 @@ deploy_to_inactive() {
     # Setup environment variables
     echo -e "${YELLOW}⚙️  Setting up environment variables...${NC}"
     if [ ! -f ".env" ]; then
-        sudo -u maritime tee .env > /dev/null <<EOF
-POSTGRES_SERVER=localhost
-POSTGRES_USER=env_pg_db_123_admin
-POSTGRES_PASSWORD=
-POSTGRES_DB=env_mari_db
-POSTGRES_PORT=5432
-
-SECRET_KEY=
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-
-REDIS_HOST=localhost
-REDIS_PORT=6379
-EOF
+        : "${GREEN_ENERGY_ENV_FILE:?Set GREEN_ENERGY_ENV_FILE to your private environment file}"
+        sudo -u maritime cp "$GREEN_ENERGY_ENV_FILE" .env
     fi
     
     # Run database migrations

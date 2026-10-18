@@ -62,7 +62,7 @@ Add these variables to your `backend/.env` file:
 SMTP_HOST=smtp.emisify.com
 SMTP_PORT=587
 SMTP_USERNAME=noreply@emisify.com
-SMTP_PASSWORD=your_smtp_password_here
+SMTP_PASSWORD=
 SMTP_USE_TLS=true
 
 # Email Settings (Optional)
@@ -100,7 +100,7 @@ If you're using ImprovMX with your `emisify.com` domain:
 SMTP_HOST=smtp.emisify.com
 SMTP_PORT=587
 SMTP_USERNAME=noreply@emisify.com
-SMTP_PASSWORD=your_email_password
+SMTP_PASSWORD=
 SMTP_USE_TLS=true
 ```
 
@@ -112,7 +112,7 @@ SMTP_USE_TLS=true
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USERNAME=your-email@gmail.com
-SMTP_PASSWORD=your-app-specific-password
+SMTP_PASSWORD=
 SMTP_USE_TLS=true
 ```
 
@@ -122,7 +122,7 @@ SMTP_USE_TLS=true
 SMTP_HOST=smtp.sendgrid.net
 SMTP_PORT=587
 SMTP_USERNAME=apikey
-SMTP_PASSWORD=your-sendgrid-api-key
+SMTP_PASSWORD=
 SMTP_USE_TLS=true
 ```
 
@@ -132,7 +132,7 @@ SMTP_USE_TLS=true
 SMTP_HOST=smtp.mailgun.org
 SMTP_PORT=587
 SMTP_USERNAME=postmaster@your-domain.com
-SMTP_PASSWORD=your-mailgun-password
+SMTP_PASSWORD=
 SMTP_USE_TLS=true
 ```
 

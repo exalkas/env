@@ -203,20 +203,8 @@ sudo -u maritime venv/bin/pip install -r requirements.txt
 # Setup environment variables (if not exists)
 if [ ! -f ".env" ]; then
     echo "Creating .env file..."
-    sudo -u maritime tee .env > /dev/null <<EOV
-POSTGRES_SERVER=db.maritime.com
-POSTGRES_USER=env_pg_db_123_admin
-POSTGRES_PASSWORD=
-POSTGRES_DB=env_mari_db
-POSTGRES_PORT=5432
-
-SECRET_KEY=
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-
-REDIS_HOST=redis.maritime.com
-REDIS_PORT=6379
-EOV
+        : "${GREEN_ENERGY_ENV_FILE:?Set GREEN_ENERGY_ENV_FILE to your private environment file}"
+        sudo -u maritime cp "$GREEN_ENERGY_ENV_FILE" .env
 fi
 
 # Run database migrations (only on first server to avoid conflicts)

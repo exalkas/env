@@ -82,4 +82,20 @@ logs/
 .turbo
 
 # Uploaded files (contains sensitive user documents)
-backend/uploads/ 
+backend/uploads/
+# Private configuration and generated exports
+.env.*
+!**/.env.example
+**/env_file
+**/env_template
+**/migration_info.json
+backend/data-*.csv
+backend/exports/
+backend/backups/
+*.dump
+*.backup
+*.pem
+*.key
+*.p12
+*.pfx
+.pytest_cache/

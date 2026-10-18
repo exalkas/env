@@ -22,7 +22,7 @@ pip install -r requirements.txt
 Add the following to your backend `.env` file:
 
 ```env
-OPENAI_API_KEY=your-openai-api-key-here
+OPENAI_API_KEY=
 ```
 
 To get an OpenAI API key:

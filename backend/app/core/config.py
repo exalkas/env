@@ -1,13 +1,13 @@
 from typing import List
 from pydantic_settings import BaseSettings
-from pydantic import AnyHttpUrl, validator
-import secrets
+from pydantic import AnyHttpUrl, validator, Field
+from urllib.parse import quote
 from functools import lru_cache
 
 class Settings(BaseSettings):
     # API Settings
     API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str = secrets.token_urlsafe(32)
+    SECRET_KEY: str = Field(min_length=32)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     
     # CORS Settings
@@ -26,7 +26,7 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     # Email Settings
-    EMAIL_ENABLED: bool = True
+    EMAIL_ENABLED: bool = False
     SMTP_HOST: str = "smtp.emisify.com"
     SMTP_PORT: int = 587
     SMTP_USERNAME: str = "noreply@emisify.com"
@@ -51,13 +51,19 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = "emisify"
     POSTGRES_PORT: int = 5432
-    SQLALCHEMY_DATABASE_URI: str | None = None
+    SQLALCHEMY_DATABASE_URI: str | None = Field(default=None, validate_default=True)
 
     @validator("SQLALCHEMY_DATABASE_URI", pre=True)
     def assemble_db_connection(cls, v: str | None, values: dict[str, any]) -> any:
-        if isinstance(v, str):
+        if isinstance(v, str) and v.strip():
             return v
-        return f"postgresql://{values.get('POSTGRES_USER')}:{values.get('POSTGRES_PASSWORD')}@{values.get('POSTGRES_SERVER')}:{values.get('POSTGRES_PORT')}/{values.get('POSTGRES_DB')}"
+        password = values.get("POSTGRES_PASSWORD")
+        if not password:
+            raise ValueError("Set POSTGRES_PASSWORD or SQLALCHEMY_DATABASE_URI in the environment")
+        user = quote(values["POSTGRES_USER"], safe="")
+        password = quote(password, safe="")
+        database = quote(values["POSTGRES_DB"], safe="")
+        return f"postgresql://{user}:{password}@{values['POSTGRES_SERVER']}:{values['POSTGRES_PORT']}/{database}"
 
     # Redis Settings
     REDIS_HOST: str = "localhost"
@@ -84,6 +90,7 @@ class Settings(BaseSettings):
     class Config:
         case_sensitive = True
         env_file = ".env"
+        extra = "ignore"
 
 @lru_cache()
 def get_settings() -> Settings:

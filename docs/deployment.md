@@ -89,13 +89,13 @@ pip install -r requirements.txt
 # Create .env file
 cat > .env << EOL
 # API Settings
-SECRET_KEY=your_secret_key
+SECRET_KEY=
 ACCESS_TOKEN_EXPIRE_MINUTES=11520  # 8 days
 
 # Database Settings
 POSTGRES_SERVER=localhost
 POSTGRES_USER=emisify
-POSTGRES_PASSWORD=your_
+POSTGRES_PASSWORD=
 POSTGRES_DB=emisify
 
 # Redis Settings

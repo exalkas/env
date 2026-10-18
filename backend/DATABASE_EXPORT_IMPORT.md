@@ -188,7 +188,7 @@ psql -d emisify_new -f database_exports/import_database_TIMESTAMP.sql
    ```env
    POSTGRES_SERVER=localhost
    POSTGRES_USER=postgres
-   POSTGRES_PASSWORD=your_password
+   POSTGRES_PASSWORD=
    POSTGRES_DB=emisify
    POSTGRES_PORT=5432
    ```

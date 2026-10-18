@@ -60,22 +60,10 @@ sudo -u maritime $VENV_DIR/bin/pip install -r requirements.txt
 # Step 6: Setup environment variables
 echo -e "${YELLOW}⚙️  Setting up environment variables...${NC}"
 if [ ! -f "$BACKEND_DIR/.env" ]; then
-    sudo -u maritime cp $BACKEND_DIR/env_file $BACKEND_DIR/.env 2>/dev/null || {
+    {
         echo "Creating .env file..."
-        sudo -u maritime tee $BACKEND_DIR/.env > /dev/null <<EOF
-POSTGRES_SERVER=localhost
-POSTGRES_USER=env_pg_db_123_admin
-POSTGRES_PASSWORD=
-POSTGRES_DB=env_mari_db
-POSTGRES_PORT=5432
-
-SECRET_KEY=
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-
-REDIS_HOST=localhost
-REDIS_PORT=6379
-EOF
+        : "${GREEN_ENERGY_ENV_FILE:?Set GREEN_ENERGY_ENV_FILE to your private environment file}"
+        sudo -u maritime cp "$GREEN_ENERGY_ENV_FILE" $BACKEND_DIR/.env
     }
     echo "✅ Environment variables configured"
 fi

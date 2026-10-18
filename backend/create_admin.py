@@ -3,6 +3,7 @@
 Script to create a default admin user
 """
 
+import os
 from sqlalchemy.orm import Session
 from app.core.security import get_password_hash
 from app.models.user import User
@@ -14,18 +15,18 @@ def create_admin_user():
     
     try:
         # Check if admin user already exists
-        admin_user = db.query(User).filter(User.email == "admin@greenenergy.com").first()
+        admin_user = db.query(User).filter(User.email == os.environ["ADMIN_EMAIL"]).first()
         
         if admin_user:
             print("✓ Admin user already exists!")
-            print(f"  Email: admin@greenenergy.com")
+            print("Admin email comes from ADMIN_EMAIL.")
             return
         
         # Create admin user
-        hashed_password = get_password_hash("")
+        hashed_password = get_password_hash(os.environ["ADMIN_PASSWORD"])
         
         admin_user = User(
-            email="admin@greenenergy.com",
+            email=os.environ["ADMIN_EMAIL"],
             hashed_password=hashed_password,
             full_name="System Administrator",
             is_active=True,
@@ -39,8 +40,8 @@ def create_admin_user():
         db.refresh(admin_user)
         
         print("✓ Admin user created successfully!")
-        print(f"  Email: admin@greenenergy.com")
-        print(f"  Password: ")
+        print("Admin email comes from ADMIN_EMAIL.")
+        print("Admin password comes from the local environment.")
         print(f"  Please change the password after first login.")
         
     except Exception as e:

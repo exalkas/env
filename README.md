@@ -1,113 +1,27 @@
 # Green Energy Trading Marketplace
 
-A comprehensive platform for green energy trading that connects buyers and sellers while providing real-time market data and news. The system enables trading of various green energy assets including EUAs, EUA2, GOO, GEO, voluntary markets, and biofuels.
+A development platform for environmental-asset trading, market information and education. The repository contains a FastAPI backend and three Next.js applications: a marketing site, a client marketplace and an administration dashboard.
 
-## Applications
+Features under development include buy/sell orders, matching, market and news views, subscriptions, KYC workflows, learning paths, interactive lessons and certificates. It is intended for developers exploring green-energy marketplace and education workflows. Sample asset prices are demonstration data, not live market quotes. This repository does not establish a licensed exchange, verified pricing feed or production-ready compliance system.
 
-### 1. Landing Page
+## Run locally
 
-- Modern, responsive marketing site
-- Built with Next.js
-- Key features:
-  - Subscription information
-  - Product descriptions
-  - User registration and login
-  - Benefits of using the platform
+Prerequisites: Python 3.10+, Node.js 18+, PostgreSQL and, for features that use it, Redis.
 
-### 2. Marketplace Application
+1. In `backend`, create a virtual environment and install `requirements.txt`.
+2. Copy `backend/.env.example` to `backend/.env`. Supply your own PostgreSQL password and a persistent `SECRET_KEY` of at least 32 characters. Alternatively supply `SQLALCHEMY_DATABASE_URI` as a full connection URL. The backend URL-encodes credentials when assembling a URL from individual fields.
+3. From `backend`, run `python -m alembic upgrade head`, then `python run.py`. Review migrations and use a separate development database. The API defaults to port 8000.
+4. In each desired frontend (`landing-page`, `clients-app`, `admin-app`), run `npm install`, then `npm run dev`. Choose distinct ports when running them together, for example `npm run dev -- --port 3001`. Configure the frontend API URL and backend CORS origins for your local setup.
+5. To create an administrator, export `ADMIN_EMAIL` and `ADMIN_PASSWORD` in the process environment before explicitly running `python create_admin.py` from `backend`.
 
-- Core trading platform for users
-- Built with Next.js and WebSockets for real-time updates
-- Key features:
-  - Live news feed for green energy industry
-  - Real-time market prices
-  - Buy/sell order placement
-  - Order matching system
-  - User dashboard with transaction history
-  - KYC verification for EU asset trading
-  - Subscription management
+Email is disabled by default. Configure SMTP locally before enabling it. Stripe and AI features also require independently configured local credentials; add provider keys only to the ignored `.env` or process environment. No credential values or database exports are distributed. Credentials must never be placed in browser-visible `NEXT_PUBLIC_` variables.
 
-### 3. Admin Application
+Database utilities and deployment scripts are administrative tools: review them before use. Resetting a database requires `ADMIN_DATABASE_URL` and the explicit `--reset` option. Deployment workflows are manual; deployment helpers require an existing private environment file through `GREEN_ENERGY_ENV_FILE`. Publishing source does not deploy a service.
 
-- Management dashboard for platform administrators
-- Built with Next.js
-- Key features:
-  - User management
-  - Content management for news
-  - Transaction monitoring
-  - KYC verification management
-  - System configuration
-  - Analytics and reporting
+## Validation
 
-## Technical Stack
+Run `python -m unittest discover -s backend/tests -v` for configuration checks. These checks do not contact databases or external providers. End-to-end operation, migrations and live integrations require a separately configured development environment.
 
-### Frontend
+## License
 
-- Next.js for all applications
-- React Context API for state management
-- WebSockets for real-time updates
-- Responsive design for all device types
-
-### Backend
-
-- FastAPI (Python) for all services
-- JWT authentication
-- PostgreSQL database
-- Redis for caching and pub/sub
-- WebSockets for real-time communication
-
-### Infrastructure
-
-- Digital Ocean for hosting all applications
-- CI/CD via GitHub Actions
-- Maximum capacity for 100 concurrent users
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+ and npm
-- Python 3.10+
-- PostgreSQL
-- Redis
-
-### Running the Landing Page
-
-```bash
-cd landing-page
-npm install
-npm run dev
-```
-
-The landing page will be available at http://localhost:3000
-
-### Running the Backend
-
-```bash
-cd backend
-pip install -r requirements.txt
-python run.py
-```
-
-The API will be available at http://localhost:8000
-
-## Development Progress
-
-- Sprint 1: Setting up project structure and basic functionality
-
-## Data Sources
-
-- External API integrations for real-time market data
-- News API services for industry headlines
-- KYC verification services
-
-## Next Steps
-
-1. Continue development with 1-week sprints
-2. Deploy MVP to Digital Ocean
-3. Test with initial users
-4. Scale based on feedback
-
-## Contact
-
-For any questions regarding this project, please contact the project manager.
+MIT. See [LICENSE](LICENSE).
