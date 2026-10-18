@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "../../../lib/AuthContext";
+import { useAuth } from "@/lib/AuthContext";
+import { useNotifications } from "@/lib/contexts/NotificationContext";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -13,6 +14,7 @@ import {
   BookOpenIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
+import { InteractiveLessonWrapper } from "@/components/education";
 
 interface Lesson {
   id: number;
@@ -26,6 +28,22 @@ interface Lesson {
   video_url?: string;
   video_description?: string;
   quiz_questions?: QuizQuestion[];
+  // Interactive content fields
+  interactive_type_id?: number;
+  interactive_content?: {
+    type: {
+      id: number;
+      type_key: string;
+      display_name: string;
+      component_name: string;
+      default_config: any;
+    };
+    scenarios: any[];
+  };
+  // Progress fields from backend
+  is_completed?: boolean;
+  is_started?: boolean;
+  is_locked?: boolean;
   module: {
     id: number;
     title: string;
@@ -34,7 +52,7 @@ interface Lesson {
       title: string;
     };
   };
-  navigation: {
+  navigation?: {
     previous_lesson?: {
       id: number;
       title: string;
@@ -46,10 +64,8 @@ interface Lesson {
   };
   user_progress?: {
     is_completed: boolean;
-    time_spent: number;
-    last_accessed: string;
-    quiz_score?: number;
-    quiz_attempts?: number;
+    completed_at?: string;
+    progress_percentage: number;
   };
 }
 
@@ -71,9 +87,9 @@ export default function LessonViewer() {
   const { id } = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { showSuccess, showError } = useNotifications();
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
-  const [startTime] = useState(Date.now());
   const [isCompleting, setIsCompleting] = useState(false);
 
   // Quiz state
@@ -81,70 +97,65 @@ export default function LessonViewer() {
   const [showResults, setShowResults] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
 
+  // Interactive lesson state
+  const [interactiveScore, setInteractiveScore] = useState<number | null>(null);
+
   useEffect(() => {
     if (id && user) {
       fetchLesson();
     }
   }, [id, user]);
 
-  useEffect(() => {
-    // Track time spent on lesson
-    const interval = setInterval(() => {
-      if (lesson && !lesson.user_progress?.is_completed) {
-        updateTimeSpent();
-      }
-    }, 30000); // Update every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [lesson]);
-
   const fetchLesson = async () => {
     try {
-      const response = await fetch(`/api/education/lessons/${id}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setLesson(data);
+      const { fetchLesson: apiCall } = await import("@/lib/api");
+      const data = await apiCall(Number(id));
 
-        // Initialize quiz attempts if it's a quiz lesson
-        if (data.lesson_type === "QUIZ" && data.quiz_questions) {
-          setQuizAttempts(
-            data.quiz_questions.map((q: QuizQuestion) => ({
-              question_id: q.id,
-              selected_answer: -1,
-              is_correct: false,
-            }))
+      // Fetch interactive content if it's an interactive lesson
+      if (data.lesson_type === "INTERACTIVE" && data.interactive_type_id) {
+        try {
+          const response = await fetch(
+            `http://localhost:8000/api/v1/interactive-content/lessons/${id}`,
+            {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+                "Content-Type": "application/json",
+              },
+            }
           );
+
+          if (response.ok) {
+            const interactiveData = await response.json();
+            data.interactive_content = interactiveData;
+          }
+        } catch (interactiveError) {
+          console.error(
+            "Error fetching interactive content:",
+            interactiveError
+          );
+          // Continue without interactive content - will fallback to basic content
         }
-      } else if (response.status === 404) {
+      }
+
+      setLesson(data);
+
+      // Initialize quiz attempts if it's a quiz lesson
+      if (data.lesson_type === "QUIZ" && data.quiz_questions) {
+        setQuizAttempts(
+          data.quiz_questions.map((q: QuizQuestion) => ({
+            question_id: q.id,
+            selected_answer: -1,
+            is_correct: false,
+          }))
+        );
+      }
+    } catch (error: any) {
+      console.error("Error fetching lesson:", error);
+      if (error.response?.status === 404) {
         router.push("/education");
       }
-    } catch (error) {
-      console.error("Error fetching lesson:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const updateTimeSpent = async () => {
-    if (!lesson) return;
-
-    const timeSpent = Math.floor((Date.now() - startTime) / 1000 / 60); // minutes
-
-    try {
-      await fetch(`/api/education/lessons/${lesson.id}/progress`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ time_spent: timeSpent }),
-      });
-    } catch (error) {
-      console.error("Error updating time spent:", error);
     }
   };
 
@@ -152,30 +163,53 @@ export default function LessonViewer() {
     if (!lesson || isCompleting) return;
 
     setIsCompleting(true);
-    const timeSpent = Math.floor((Date.now() - startTime) / 1000 / 60);
 
     try {
-      const response = await fetch(
-        `/api/education/lessons/${lesson.id}/complete`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            time_spent: timeSpent,
-            quiz_score: lesson.lesson_type === "QUIZ" ? quizScore : undefined,
-          }),
-        }
-      );
+      const { completeLesson } = await import("@/lib/api");
+      await completeLesson(lesson.id);
 
-      if (response.ok) {
-        // Refresh lesson data
+      // Immediately update the lesson state to reflect completion
+      setLesson((prevLesson) => {
+        if (!prevLesson) return prevLesson;
+        return {
+          ...prevLesson,
+          is_completed: true, // Set root-level completion status
+          user_progress: {
+            is_completed: true,
+            completed_at: new Date().toISOString(),
+            progress_percentage: 100,
+          },
+        };
+      });
+
+      // Refresh from server to get any other updates (like navigation)
+      setTimeout(() => {
         fetchLesson();
-      }
-    } catch (error) {
+      }, 100);
+
+      // Show success message
+      showSuccess(
+        "Lesson Completed! 🎉",
+        lesson.navigation?.next_lesson
+          ? "Ready for the next lesson?"
+          : "Great job! You've successfully completed this lesson."
+      );
+    } catch (error: any) {
       console.error("Error marking lesson as completed:", error);
+
+      // Handle sequential completion error
+      if (error.response?.status === 400) {
+        showError(
+          "Cannot Complete Lesson",
+          error.response.data.detail ||
+            "You must complete previous lessons first"
+        );
+      } else {
+        showError(
+          "Completion Failed",
+          "Failed to mark lesson as complete. Please try again."
+        );
+      }
     } finally {
       setIsCompleting(false);
     }
@@ -217,6 +251,14 @@ export default function LessonViewer() {
   const canSubmitQuiz = quizAttempts.every(
     (attempt) => attempt.selected_answer !== -1
   );
+
+  const handleInteractiveComplete = (score: number) => {
+    setInteractiveScore(score);
+    // For interactive lessons, automatically mark as complete after interaction
+    setTimeout(() => {
+      markAsCompleted();
+    }, 1000);
+  };
 
   const formatDuration = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
@@ -341,6 +383,14 @@ export default function LessonViewer() {
                   <div className="flex items-center text-green-600">
                     <CheckCircleIcon className="h-4 w-4 mr-1" />
                     Completed
+                    {lesson.user_progress.completed_at && (
+                      <span className="ml-2 text-xs text-gray-500">
+                        on{" "}
+                        {new Date(
+                          lesson.user_progress.completed_at
+                        ).toLocaleDateString()}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -363,12 +413,33 @@ export default function LessonViewer() {
               </div>
             )}
 
-            {/* Text/Interactive Content */}
-            {(lesson.lesson_type === "TEXT" ||
-              lesson.lesson_type === "INTERACTIVE") && (
-              <div className="prose max-w-none mb-6">
-                <div className="whitespace-pre-wrap">{lesson.content}</div>
-              </div>
+            {/* Interactive Content */}
+            {lesson.lesson_type === "INTERACTIVE" ? (
+              <InteractiveLessonWrapper
+                lesson={{
+                  id: lesson.id,
+                  module_id: lesson.module_id,
+                  title: lesson.title,
+                  content: lesson.content,
+                  lesson_type: lesson.lesson_type.toLowerCase() as
+                    | "text"
+                    | "video"
+                    | "interactive"
+                    | "quiz",
+                  duration_minutes: lesson.estimated_duration,
+                  interactive_content: lesson.interactive_content,
+                }}
+                onComplete={handleInteractiveComplete}
+              />
+            ) : (
+              lesson.lesson_type === "TEXT" && (
+                <div className="mb-6">
+                  <div
+                    dangerouslySetInnerHTML={{ __html: lesson.content }}
+                    className="lesson-content"
+                  />
+                </div>
+              )
             )}
 
             {/* Quiz Content */}
@@ -489,41 +560,96 @@ export default function LessonViewer() {
         {/* Navigation and Actions */}
         <div className="flex items-center justify-between">
           <div>
-            {lesson.navigation.previous_lesson && (
+            {lesson.navigation?.previous_lesson ? (
               <Link
-                href={`/education/lessons/${lesson.navigation.previous_lesson.id}`}
+                href={`/education/lessons/${lesson.navigation?.previous_lesson.id}`}
                 className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
                 <ArrowLeftIcon className="h-4 w-4 mr-2" />
-                Previous: {lesson.navigation.previous_lesson.title}
+                Previous: {lesson.navigation?.previous_lesson.title}
+              </Link>
+            ) : (
+              <Link
+                href={`/education/learning-paths/${lesson.module.learning_path.id}`}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <ArrowLeftIcon className="h-4 w-4 mr-2" />
+                Back to {lesson.module.learning_path.title}
               </Link>
             )}
           </div>
 
           <div className="flex items-center space-x-4">
-            {!lesson.user_progress?.is_completed && (
-              <button
-                onClick={markAsCompleted}
-                disabled={
-                  isCompleting ||
-                  (lesson.lesson_type === "QUIZ" && !showResults)
-                }
-                className="bg-green-600 text-white px-6 py-2 rounded-md font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
-              >
-                <CheckCircleIcon className="h-4 w-4 mr-2" />
-                {isCompleting ? "Completing..." : "Mark as Complete"}
-              </button>
+            {(() => {
+              const showButton =
+                !lesson.is_completed &&
+                !lesson.user_progress?.is_completed &&
+                !lesson.is_locked;
+
+              return showButton;
+            })() && (
+              <div className="flex flex-col items-end">
+                <button
+                  onClick={markAsCompleted}
+                  disabled={
+                    isCompleting ||
+                    (lesson.lesson_type === "QUIZ" && !showResults)
+                  }
+                  className="bg-green-600 text-white px-6 py-2 rounded-md font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
+                >
+                  <CheckCircleIcon className="h-4 w-4 mr-2" />
+                  {isCompleting ? "Completing..." : "Mark as Complete"}
+                </button>
+
+                {lesson.navigation?.previous_lesson && (
+                  <p className="text-xs text-gray-500 mt-1 text-right">
+                    💡 Complete lessons in order for the best learning
+                    experience
+                  </p>
+                )}
+              </div>
             )}
 
-            {lesson.navigation.next_lesson && (
-              <Link
-                href={`/education/lessons/${lesson.navigation.next_lesson.id}`}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-              >
-                Next: {lesson.navigation.next_lesson.title}
-                <ArrowRightIcon className="h-4 w-4 ml-2" />
-              </Link>
-            )}
+            {/* Next Lesson Button */}
+            {(lesson.is_completed || lesson.user_progress?.is_completed) &&
+              lesson.navigation?.next_lesson && (
+                <Link
+                  href={`/education/lessons/${lesson.navigation.next_lesson.id}`}
+                  className="inline-flex items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200 hover:scale-105"
+                >
+                  Next Lesson: {lesson.navigation.next_lesson.title}
+                  <ArrowRightIcon className="h-5 w-5 ml-2" />
+                </Link>
+              )}
+
+            {/* Certificate Button - Show when lesson is completed and it's the final lesson */}
+            {(lesson.is_completed || lesson.user_progress?.is_completed) &&
+              !lesson.navigation?.next_lesson && (
+                <div className="flex flex-col items-end">
+                  <Link
+                    href={`/education/learning-paths/${lesson.module.learning_path.id}`}
+                    className="inline-flex items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transition-all duration-200 hover:scale-105 shadow-lg"
+                  >
+                    🎉 Get Your Certificate
+                    <svg
+                      className="h-5 w-5 ml-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
+                      />
+                    </svg>
+                  </Link>
+                  <p className="text-xs text-gray-500 mt-2 text-right">
+                    🎯 Congratulations! You&apos;ve completed the entire course
+                  </p>
+                </div>
+              )}
           </div>
         </div>
       </div>

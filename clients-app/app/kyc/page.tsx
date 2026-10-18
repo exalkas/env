@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "../../lib/AuthContext";
-import { getAuthHeader } from "../../lib/auth";
-import FormInput from "../../components/shared/FormInput";
-import Button from "../../components/shared/Button";
-import FileUpload from "../../components/shared/FileUpload";
+import { useAuth } from "@/lib/AuthContext";
+import { getAuthHeader } from "@/lib/auth";
+import FormInput from "@/components/shared/FormInput";
+import Button from "@/components/shared/Button";
+import FileUpload from "@/components/shared/FileUpload";
 
 interface KYCStatus {
   status: string;

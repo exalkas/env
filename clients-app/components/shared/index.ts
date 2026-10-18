@@ -16,3 +16,16 @@ export { default as SearchInput } from "./SearchInput";
 export { default as EmptyState } from "./EmptyState";
 export { default as Card } from "./Card";
 export { default as Modal } from "./Modal";
+
+// Notification components
+export {
+  default as NotificationToast,
+  NotificationContainer,
+} from "./NotificationToast";
+export type { NotificationProps } from "./NotificationToast";
+
+// Education components
+export { default as LearningPathCard } from "./LearningPathCard";
+
+// New components
+export { default as ConfirmationModal } from "./ConfirmationModal";

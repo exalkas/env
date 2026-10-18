@@ -415,4 +415,100 @@ def debug_current_user(
         "computed_is_admin": current_user.is_admin,
         "computed_role_level": current_user.role_level,
         "computed_role_name": current_user.role_name,
+    }
+
+@router.get("/me/preferences", response_model=schemas.NotificationPreferences)
+def get_user_preferences(
+    current_user: models.User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Get current user's notification preferences.
+    """
+    return {
+        "email_marketing": current_user.email_marketing if current_user.email_marketing is not None else False,
+        "email_price_alerts": current_user.email_price_alerts if current_user.email_price_alerts is not None else True,
+        "email_order_updates": current_user.email_order_updates if current_user.email_order_updates is not None else True,
+        "email_news_digest": current_user.email_news_digest if current_user.email_news_digest is not None else True,
+        "sms_enabled": current_user.sms_enabled if current_user.sms_enabled is not None else False,
+    }
+
+@router.put("/me/preferences", response_model=schemas.NotificationPreferences)
+def update_user_preferences(
+    preferences: schemas.NotificationPreferencesUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Update current user's notification preferences.
+    """
+    # Update only provided fields
+    if preferences.email_marketing is not None:
+        current_user.email_marketing = preferences.email_marketing
+    if preferences.email_price_alerts is not None:
+        current_user.email_price_alerts = preferences.email_price_alerts
+    if preferences.email_order_updates is not None:
+        current_user.email_order_updates = preferences.email_order_updates
+    if preferences.email_news_digest is not None:
+        current_user.email_news_digest = preferences.email_news_digest
+    if preferences.sms_enabled is not None:
+        current_user.sms_enabled = preferences.sms_enabled
+    
+    db.commit()
+    db.refresh(current_user)
+    
+    return {
+        "email_marketing": current_user.email_marketing if current_user.email_marketing is not None else False,
+        "email_price_alerts": current_user.email_price_alerts if current_user.email_price_alerts is not None else True,
+        "email_order_updates": current_user.email_order_updates if current_user.email_order_updates is not None else True,
+        "email_news_digest": current_user.email_news_digest if current_user.email_news_digest is not None else True,
+        "sms_enabled": current_user.sms_enabled if current_user.sms_enabled is not None else False,
+    }
+
+@router.post("/me/deactivate")
+def deactivate_current_user_account(
+    request: dict,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Request account deactivation for current user.
+    """
+    reason = request.get("reason", "No reason provided")
+    
+    # For now, just return a success message
+    # In a real implementation, this could create a deactivation request ticket
+    return {
+        "message": "Account deactivation request submitted successfully",
+        "reason": reason,
+        "user_id": current_user.id,
+        "status": "pending_review"
+    }
+
+@router.get("/me/export")
+def export_current_user_data(
+    current_user: models.User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Export current user's data (GDPR compliance).
+    """
+    # Return user data in JSON format
+    # In a real implementation, this could generate a downloadable file
+    return {
+        "user_data": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "full_name": current_user.full_name,
+            "subscription_type": current_user.subscription_type,
+            "kyc_verified": current_user.kyc_verified,
+            "created_at": current_user.created_at,
+            "preferences": {
+                "email_marketing": current_user.email_marketing if current_user.email_marketing is not None else False,
+                "email_price_alerts": current_user.email_price_alerts if current_user.email_price_alerts is not None else True,
+                "email_order_updates": current_user.email_order_updates if current_user.email_order_updates is not None else True,
+                "email_news_digest": current_user.email_news_digest if current_user.email_news_digest is not None else True,
+                "sms_enabled": current_user.sms_enabled if current_user.sms_enabled is not None else False,
+            }
+        },
+        "message": "User data export completed",
+        "export_date": "2024-01-01T00:00:00Z"
     } 

@@ -3,11 +3,20 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import {
+  fetchLearningPaths,
+  enrollInLearningPath,
+  fetchUserStats as fetchUserStatsAPI,
+} from "@/lib/api";
+import {
+  NotificationContainer,
+  NotificationProps,
+  LearningPathCard,
+} from "@/components/shared";
+import {
   AcademicCapIcon,
   BookOpenIcon,
   ClockIcon,
   TrophyIcon,
-  PlayIcon,
   CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
@@ -44,28 +53,24 @@ export default function EducationDashboard() {
   const [learningPaths, setLearningPaths] = useState<LearningPath[]>([]);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [enrolling, setEnrolling] = useState<number | null>(null);
+  const [notifications, setNotifications] = useState<NotificationProps[]>([]);
   const [activeTab, setActiveTab] = useState<"browse" | "my-learning">(
     "browse"
   );
 
   useEffect(() => {
     if (user) {
-      fetchLearningPaths();
+      loadLearningPaths();
       fetchUserStats();
     }
   }, [user]);
 
-  const fetchLearningPaths = async () => {
+  const loadLearningPaths = async () => {
     try {
-      const response = await fetch("/api/education/learning-paths", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setLearningPaths(data);
-      }
+      const data = await fetchLearningPaths({ is_active: true });
+      console.log("Learning paths data:", data);
+      setLearningPaths(data);
     } catch (error) {
       console.error("Error fetching learning paths:", error);
     } finally {
@@ -75,54 +80,70 @@ export default function EducationDashboard() {
 
   const fetchUserStats = async () => {
     try {
-      const response = await fetch("/api/education/user-stats", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUserStats(data);
-      }
+      console.log("Fetching user stats...");
+      const stats = await fetchUserStatsAPI();
+      console.log("User stats received:", stats);
+      setUserStats(stats);
     } catch (error) {
       console.error("Error fetching user stats:", error);
+      // Fallback to zeros
+      setUserStats({
+        enrolled_paths: 0,
+        completed_paths: 0,
+        total_learning_time: 0,
+        certificates_earned: 0,
+        current_streak: 0,
+      });
     }
+  };
+
+  const addNotification = (
+    notification: Omit<NotificationProps, "id" | "onDismiss">
+  ) => {
+    const id = Date.now().toString();
+    const newNotification: NotificationProps = {
+      ...notification,
+      id,
+      onDismiss: dismissNotification,
+    };
+    setNotifications((prev) => [...prev, newNotification]);
+  };
+
+  const dismissNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
   const handleEnroll = async (pathId: number) => {
+    setEnrolling(pathId);
     try {
-      const response = await fetch(
-        `/api/education/learning-paths/${pathId}/enroll`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      if (response.ok) {
-        // Refresh data
-        fetchLearningPaths();
-        fetchUserStats();
-      }
-    } catch (error) {
-      console.error("Error enrolling in learning path:", error);
-    }
-  };
+      const result = await enrollInLearningPath(pathId);
 
-  const getLevelBadgeColor = (level: string) => {
-    switch (level?.toLowerCase()) {
-      case "beginner":
-        return "bg-green-100 text-green-800";
-      case "intermediate":
-        return "bg-yellow-100 text-yellow-800";
-      case "advanced":
-        return "bg-orange-100 text-orange-800";
-      case "expert":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+      addNotification({
+        type: "success",
+        title: "Enrollment Successful!",
+        message: `You have been enrolled in "${result.learning_path}". Start learning now!`,
+        duration: 6000,
+      });
+
+      // Refresh learning paths and user stats to show updated enrollment status
+      await loadLearningPaths();
+      await fetchUserStats();
+    } catch (error: any) {
+      console.error("Error enrolling in learning path:", error);
+
+      let errorMessage = "Failed to enroll in learning path. Please try again.";
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      }
+
+      addNotification({
+        type: "error",
+        title: "Enrollment Failed",
+        message: errorMessage,
+        duration: 8000,
+      });
+    } finally {
+      setEnrolling(null);
     }
   };
 
@@ -338,46 +359,14 @@ export default function EducationDashboard() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {availablePaths.map((path) => (
-                  <div
+                  <LearningPathCard
                     key={path.id}
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
-                  >
-                    <div className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getLevelBadgeColor(
-                            path.level
-                          )}`}
-                        >
-                          {path.level.toLowerCase()}
-                        </span>
-                        <div className="text-sm text-gray-500">
-                          {path.modules_count} modules
-                        </div>
-                      </div>
-
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        {path.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 mb-4 line-clamp-3">
-                        {path.description}
-                      </p>
-
-                      <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                        <div className="flex items-center">
-                          <ClockIcon className="h-4 w-4 mr-1" />
-                          {formatDuration(path.estimated_duration)}
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleEnroll(path.id)}
-                        className="w-full bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
-                      >
-                        Enroll Now
-                      </button>
-                    </div>
-                  </div>
+                    path={path}
+                    variant="available"
+                    onEnroll={handleEnroll}
+                    isEnrolling={enrolling !== null}
+                    enrollingId={enrolling}
+                  />
                 ))}
               </div>
             )}
@@ -410,79 +399,23 @@ export default function EducationDashboard() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {myLearningPaths.map((path) => (
-                  <div
+                  <LearningPathCard
                     key={path.id}
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
-                  >
-                    <div className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getLevelBadgeColor(
-                            path.level
-                          )}`}
-                        >
-                          {path.level.toLowerCase()}
-                        </span>
-                        {path.user_progress?.is_completed && (
-                          <CheckCircleIcon className="h-5 w-5 text-green-500" />
-                        )}
-                      </div>
-
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        {path.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                        {path.description}
-                      </p>
-
-                      {path.user_progress && (
-                        <div className="mb-4">
-                          <div className="flex justify-between text-sm text-gray-600 mb-1">
-                            <span>Progress</span>
-                            <span>
-                              {path.user_progress.progress_percentage}%
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                              style={{
-                                width: `${path.user_progress.progress_percentage}%`,
-                              }}
-                            ></div>
-                          </div>
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>
-                              {path.user_progress.completed_modules} of{" "}
-                              {path.user_progress.total_modules} modules
-                            </span>
-                            <span>
-                              Last accessed:{" "}
-                              {new Date(
-                                path.user_progress.last_accessed
-                              ).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      <Link
-                        href={`/education/learning-paths/${path.id}`}
-                        className="w-full bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors inline-flex items-center justify-center"
-                      >
-                        <PlayIcon className="h-4 w-4 mr-2" />
-                        {path.user_progress?.is_completed
-                          ? "Review"
-                          : "Continue Learning"}
-                      </Link>
-                    </div>
-                  </div>
+                    path={path}
+                    variant="enrolled"
+                  />
                 ))}
               </div>
             )}
           </div>
         )}
       </div>
+
+      {/* Notifications */}
+      <NotificationContainer
+        notifications={notifications}
+        onDismiss={dismissNotification}
+      />
     </div>
   );
 }

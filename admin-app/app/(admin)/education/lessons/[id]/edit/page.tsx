@@ -45,6 +45,35 @@ interface Lesson {
   };
 }
 
+interface Module {
+  id: number;
+  learning_path_id: number;
+  title: string;
+  description: string;
+  learning_path?: {
+    id: number;
+    title: string;
+    level: string;
+  };
+}
+
+interface LearningPath {
+  id: number;
+  title: string;
+  level: string;
+  modules: Module[];
+}
+
+interface InteractiveLessonType {
+  id: number;
+  type_key: string;
+  display_name: string;
+  description: string;
+  component_name: string;
+  default_config: any;
+  is_active: boolean;
+}
+
 export default function EditLessonPage() {
   const router = useRouter();
   const params = useParams();
@@ -55,6 +84,11 @@ export default function EditLessonPage() {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [learningPaths, setLearningPaths] = useState<LearningPath[]>([]);
+  const [selectedModuleId, setSelectedModuleId] = useState<string>("");
+  const [interactiveTypes, setInteractiveTypes] = useState<
+    InteractiveLessonType[]
+  >([]);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -65,6 +99,7 @@ export default function EditLessonPage() {
     estimated_duration: 15,
     sort_order: 1,
     is_active: true,
+    interactive_type_id: "",
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -79,6 +114,8 @@ export default function EditLessonPage() {
   useEffect(() => {
     if (lessonId) {
       fetchLesson();
+      fetchLearningPathsAndModules();
+      fetchInteractiveTypes();
     }
   }, [lessonId]);
 
@@ -90,6 +127,7 @@ export default function EditLessonPage() {
       if (response.ok) {
         const data = await response.json();
         setLesson(data);
+        setSelectedModuleId(data.module_id?.toString() || "");
         setFormData({
           title: data.title,
           content: data.content,
@@ -99,6 +137,7 @@ export default function EditLessonPage() {
           estimated_duration: data.estimated_duration,
           sort_order: data.sort_order,
           is_active: data.is_active,
+          interactive_type_id: "",
         });
       } else if (response.status === 404) {
         router.push("/education/learning-paths");
@@ -111,8 +150,77 @@ export default function EditLessonPage() {
     }
   };
 
+  const fetchLearningPathsAndModules = async () => {
+    try {
+      const response = await fetchWithAuth(
+        "http://localhost:8000/api/v1/education/learning-paths/"
+      );
+      if (response.ok) {
+        const paths = await response.json();
+
+        // Fetch modules for each learning path
+        const pathsWithModules: LearningPath[] = [];
+        for (const path of paths) {
+          const modulesResponse = await fetchWithAuth(
+            `http://localhost:8000/api/v1/education/learning-paths/${path.id}/modules`
+          );
+          if (modulesResponse.ok) {
+            const modules = await modulesResponse.json();
+            pathsWithModules.push({
+              ...path,
+              modules: modules.map((moduleItem: any) => ({
+                ...moduleItem,
+                learning_path: {
+                  id: path.id,
+                  title: path.title,
+                  level: path.level,
+                },
+              })),
+            });
+          }
+        }
+        setLearningPaths(pathsWithModules);
+      }
+    } catch (error) {
+      console.error("Error fetching learning paths:", error);
+      addNotification("error", "Failed to load learning paths");
+    }
+  };
+
+  const fetchInteractiveTypes = async () => {
+    try {
+      const response = await fetchWithAuth(
+        "http://localhost:8000/api/v1/interactive-content/types"
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setInteractiveTypes(
+          data.filter((type: InteractiveLessonType) => type.is_active)
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching interactive types:", error);
+      addNotification("error", "Failed to load interactive content types");
+    }
+  };
+
+  const getSelectedModule = (): Module | null => {
+    for (const path of learningPaths) {
+      for (const moduleItem of path.modules) {
+        if (moduleItem.id.toString() === selectedModuleId) {
+          return moduleItem;
+        }
+      }
+    }
+    return null;
+  };
+
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
+
+    if (!selectedModuleId) {
+      newErrors.module = "Please select a module";
+    }
 
     if (!formData.title.trim()) {
       newErrors.title = "Title is required";
@@ -120,6 +228,13 @@ export default function EditLessonPage() {
 
     if (!formData.content.trim()) {
       newErrors.content = "Content is required";
+    }
+
+    if (
+      formData.lesson_type === "INTERACTIVE" &&
+      !formData.interactive_type_id
+    ) {
+      newErrors.interactive_type_id = "Please select an interactive type";
     }
 
     if (formData.estimated_duration < 1) {
@@ -172,6 +287,19 @@ export default function EditLessonPage() {
         estimated_duration: formData.estimated_duration,
         sort_order: formData.sort_order,
         is_active: formData.is_active,
+        // CRITICAL FIX: Use selected module_id to allow changing lesson's module
+        module_id: selectedModuleId
+          ? parseInt(selectedModuleId)
+          : lesson?.module_id,
+        // Include interactive type for INTERACTIVE lessons
+        ...(formData.lesson_type === "INTERACTIVE" &&
+          formData.interactive_type_id && {
+            interactive_type_id: parseInt(formData.interactive_type_id),
+          }),
+        // Include video URL for VIDEO lessons
+        ...(formData.lesson_type === "VIDEO" && {
+          video_url: formData.video_url,
+        }),
       };
 
       const response = await fetchWithAuth(
@@ -185,8 +313,9 @@ export default function EditLessonPage() {
 
       if (response.ok) {
         addNotification("success", "Lesson updated successfully!");
+        const targetModuleId = selectedModuleId || lesson?.module_id;
         setTimeout(() => {
-          router.push(`/education/modules/${lesson?.module_id}`);
+          router.push(`/education/modules/${targetModuleId}`);
         }, 1500);
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -285,6 +414,50 @@ export default function EditLessonPage() {
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Module Selection */}
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">
+            Module Assignment
+          </h2>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Module *
+            </label>
+            <FormSelect
+              value={selectedModuleId}
+              onChange={(e) => setSelectedModuleId(e.target.value)}
+              error={errors.module}
+              required
+            >
+              <option value="">Choose a module...</option>
+              {learningPaths.map((path) => (
+                <optgroup key={path.id} label={`${path.title} (${path.level})`}>
+                  {path.modules.map((moduleItem) => (
+                    <option key={moduleItem.id} value={moduleItem.id}>
+                      {moduleItem.title}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </FormSelect>
+            {errors.module && (
+              <p className="mt-1 text-sm text-red-600">{errors.module}</p>
+            )}
+            {getSelectedModule() && (
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <div className="text-sm">
+                  <strong>Selected Module:</strong> {getSelectedModule()?.title}
+                </div>
+                <div className="text-sm text-gray-600 mt-1">
+                  <strong>Learning Path:</strong>{" "}
+                  {getSelectedModule()?.learning_path?.title} (
+                  {getSelectedModule()?.learning_path?.level})
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Basic Information */}
         <div className="bg-white shadow rounded-lg p-6">
           <h2 className="text-lg font-medium text-gray-900 mb-4">
@@ -463,6 +636,114 @@ export default function EditLessonPage() {
                   rows={3}
                 />
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Interactive Settings */}
+        {formData.lesson_type === "INTERACTIVE" && (
+          <div className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-lg font-medium text-gray-900 mb-4">
+              Interactive Content Settings
+            </h2>
+
+            <div className="space-y-6">
+              {/* Interactive Type Selection */}
+              <div>
+                <label
+                  htmlFor="interactive_type_id"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Interactive Type *
+                </label>
+                <FormSelect
+                  id="interactive_type_id"
+                  value={formData.interactive_type_id}
+                  onChange={(e) =>
+                    updateField("interactive_type_id", e.target.value)
+                  }
+                  required
+                >
+                  <option value="">Select an interactive type...</option>
+                  {interactiveTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.display_name}
+                    </option>
+                  ))}
+                </FormSelect>
+                {errors.interactive_type_id && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.interactive_type_id}
+                  </p>
+                )}
+              </div>
+
+              {/* Interactive Type Description */}
+              {formData.interactive_type_id && (
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">
+                    About This Interactive Type
+                  </h4>
+                  <p className="text-sm text-blue-700">
+                    {
+                      interactiveTypes.find(
+                        (t) => t.id.toString() === formData.interactive_type_id
+                      )?.description
+                    }
+                  </p>
+                  <div className="mt-2 text-xs text-blue-600">
+                    <strong>Component:</strong>{" "}
+                    {
+                      interactiveTypes.find(
+                        (t) => t.id.toString() === formData.interactive_type_id
+                      )?.component_name
+                    }
+                  </div>
+                </div>
+              )}
+
+              {/* Configuration Preview */}
+              {formData.interactive_type_id && (
+                <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">
+                    Default Configuration
+                  </h4>
+                  <pre className="text-xs text-gray-600 bg-white p-2 rounded border overflow-x-auto">
+                    {JSON.stringify(
+                      interactiveTypes.find(
+                        (t) => t.id.toString() === formData.interactive_type_id
+                      )?.default_config || {},
+                      null,
+                      2
+                    )}
+                  </pre>
+                  <p className="text-xs text-gray-500 mt-2">
+                    This shows the default configuration for this interactive
+                    type. Advanced configuration options will be available in
+                    the Interactive Builder.
+                  </p>
+                </div>
+              )}
+
+              {/* Link to Interactive Builder */}
+              {formData.interactive_type_id && lessonId && (
+                <div className="bg-green-50 border border-green-200 rounded-md p-4">
+                  <h4 className="text-sm font-medium text-green-900 mb-2">
+                    🎮 Interactive Builder
+                  </h4>
+                  <p className="text-sm text-green-700 mb-3">
+                    After saving these changes, you can use the Interactive
+                    Builder to create and configure scenarios for this lesson.
+                  </p>
+                  <Link
+                    href={`/education/lessons/${lessonId}/interactive-builder`}
+                    className="inline-flex items-center px-3 py-2 border border-green-300 shadow-sm text-sm leading-4 font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  >
+                    <AcademicCapIcon className="h-4 w-4 mr-2" />
+                    Open Interactive Builder
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         )}

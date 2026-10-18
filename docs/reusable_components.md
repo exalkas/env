@@ -158,6 +158,109 @@ interface FormSelectProps {
 
 ---
 
+### LearningPathCard Component
+
+**Purpose**: A reusable card component for displaying learning paths in both available and enrolled states.
+
+**File**: `clients-app/components/shared/LearningPathCard.tsx`
+
+**Features**:
+
+- **Dual Variants**: Supports both available and enrolled learning path display
+- **Progress Tracking**: Shows progress bars and completion status for enrolled paths
+- **Interactive States**: Loading states during enrollment, completion indicators
+- **Consistent Layout**: Bottom-aligned buttons with proper spacing and height consistency
+- **Color-Coded Levels**: Visual distinction between beginner, intermediate, advanced, and expert levels
+- **Duration Display**: Formatted time display (hours and minutes)
+- **Module Count**: Shows number of modules in each learning path
+- **Responsive Design**: Works on desktop, tablet, and mobile devices
+
+**Props**:
+
+```typescript
+interface LearningPathCardProps {
+  path: LearningPath;
+  variant: "available" | "enrolled";
+  onEnroll?: (pathId: number) => void;
+  isEnrolling?: boolean;
+  enrollingId?: number | null;
+}
+
+interface LearningPath {
+  id: number;
+  title: string;
+  description: string;
+  level: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
+  estimated_duration: number;
+  modules_count: number;
+  is_active: boolean;
+  created_at: string;
+  user_progress?: {
+    id: number;
+    progress_percentage: number;
+    completed_modules: number;
+    total_modules: number;
+    last_accessed: string;
+    is_completed: boolean;
+  };
+}
+```
+
+**Usage**:
+
+```tsx
+// Available learning path
+<LearningPathCard
+  path={learningPath}
+  variant="available"
+  onEnroll={handleEnroll}
+  isEnrolling={enrolling !== null}
+  enrollingId={enrolling}
+/>
+
+// Enrolled learning path
+<LearningPathCard
+  path={learningPath}
+  variant="enrolled"
+/>
+```
+
+**Variants**:
+
+**Available Variant**:
+
+- Shows "Enroll Now" button
+- Displays loading state during enrollment
+- Level badge and module count
+- Duration information
+- No progress tracking
+
+**Enrolled Variant**:
+
+- Shows progress bar with percentage
+- Displays completed vs total modules
+- Last accessed date
+- "Continue Learning" or "Review" button
+- Completion checkmark for finished paths
+
+**Level Badge Colors**:
+
+- **Beginner**: Green (`bg-green-100 text-green-800`)
+- **Intermediate**: Yellow (`bg-yellow-100 text-yellow-800`)
+- **Advanced**: Orange (`bg-orange-100 text-orange-800`)
+- **Expert**: Red (`bg-red-100 text-red-800`)
+
+**Benefits**:
+
+- ✅ **Eliminates Code Duplication**: Single component for all learning path cards
+- ✅ **Consistent Design**: Unified styling and behavior across the application
+- ✅ **Maintainable**: Changes in one place affect all usages
+- ✅ **Type Safe**: Full TypeScript support with proper interfaces
+- ✅ **Responsive**: Mobile-friendly design with proper touch targets
+- ✅ **Accessible**: Proper ARIA labels and keyboard navigation
+
+---
+
 ### 1. Button Component
 
 **Purpose**: A comprehensive, reusable button component with multiple variants, sizes, and states.

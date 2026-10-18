@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "../../../lib/AuthContext";
+import { useAuth } from "@/lib/AuthContext";
 import {
   ArrowLeftIcon,
   PlayIcon,
@@ -13,8 +13,12 @@ import {
   VideoCameraIcon,
   DocumentTextIcon,
   ClipboardDocumentCheckIcon,
+  EyeIcon,
+  TrophyIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
+import { useConfirmationModal } from "@/lib/hooks";
+import { ConfirmationModal } from "@/components/shared";
 
 interface LearningPath {
   id: number;
@@ -43,7 +47,7 @@ interface Module {
   estimated_duration: number;
   sort_order: number;
   is_active: boolean;
-  lessons: Lesson[];
+  lessons?: Lesson[]; // Optional since backend doesn't always include lessons
   user_progress?: {
     is_completed: boolean;
     completed_lessons: number;
@@ -60,6 +64,7 @@ interface Lesson {
   is_active: boolean;
   is_completed?: boolean;
   is_locked?: boolean;
+  is_started?: boolean;
 }
 
 export default function LearningPathDetail() {
@@ -69,6 +74,14 @@ export default function LearningPathDetail() {
   const [learningPath, setLearningPath] = useState<LearningPath | null>(null);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+
+  // Use confirmation modal hook
+  const confirmationModal = useConfirmationModal({
+    onConfirm: async () => {
+      await handleRestartPath();
+    },
+  });
 
   useEffect(() => {
     if (id && user) {
@@ -78,17 +91,9 @@ export default function LearningPathDetail() {
 
   const fetchLearningPath = async () => {
     try {
-      const response = await fetch(`/api/education/learning-paths/${id}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setLearningPath(data);
-      } else if (response.status === 404) {
-        router.push("/education");
-      }
+      const { fetchLearningPath: apiCall } = await import("@/lib/api");
+      const data = await apiCall(Number(id));
+      setLearningPath(data);
     } catch (error) {
       console.error("Error fetching learning path:", error);
     } finally {
@@ -97,24 +102,13 @@ export default function LearningPathDetail() {
   };
 
   const handleEnroll = async () => {
-    if (!learningPath) return;
+    if (!user || !id) return;
 
     setEnrolling(true);
     try {
-      const response = await fetch(
-        `/api/education/learning-paths/${learningPath.id}/enroll`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      if (response.ok) {
-        // Refresh the learning path data
-        fetchLearningPath();
-      }
+      const { enrollInLearningPath } = await import("@/lib/api");
+      await enrollInLearningPath(Number(id));
+      await fetchLearningPath();
     } catch (error) {
       console.error("Error enrolling in learning path:", error);
     } finally {
@@ -122,36 +116,101 @@ export default function LearningPathDetail() {
     }
   };
 
-  const startLearning = () => {
-    if (!learningPath?.modules.length) return;
+  const continueLearning = async () => {
+    if (!learningPath || !user) return;
 
-    // Find the first available lesson
-    const firstModule = learningPath.modules
-      .filter((m) => m.is_active)
-      .sort((a, b) => a.sort_order - b.sort_order)[0];
+    try {
+      const { getNextLesson } = await import("@/lib/api");
+      const nextLesson = await getNextLesson(learningPath.id);
 
-    if (firstModule?.lessons.length) {
-      const firstLesson = firstModule.lessons
-        .filter((l) => l.is_active && !l.is_locked)
+      if (nextLesson && nextLesson.lesson_id) {
+        router.push(`/education/lessons/${nextLesson.lesson_id}`);
+      } else {
+        // If no next lesson, go to first lesson
+        const firstModule = learningPath.modules
+          .filter((m) => m.is_active)
+          .sort((a, b) => a.sort_order - b.sort_order)[0];
+
+        if (firstModule?.lessons && firstModule.lessons.length > 0) {
+          const firstLesson = firstModule.lessons
+            .filter((l) => l.is_active)
+            .sort((a, b) => a.sort_order - b.sort_order)[0];
+
+          if (firstLesson) {
+            router.push(`/education/lessons/${firstLesson.id}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error getting next lesson:", error);
+      // Fallback to first lesson
+      const firstModule = learningPath.modules
+        .filter((m) => m.is_active)
         .sort((a, b) => a.sort_order - b.sort_order)[0];
 
-      if (firstLesson) {
-        router.push(`/education/lessons/${firstLesson.id}`);
+      if (firstModule?.lessons && firstModule.lessons.length > 0) {
+        const firstLesson = firstModule.lessons
+          .filter((l) => l.is_active)
+          .sort((a, b) => a.sort_order - b.sort_order)[0];
+
+        if (firstLesson) {
+          router.push(`/education/lessons/${firstLesson.id}`);
+        }
       }
     }
   };
 
-  const continueLearning = () => {
-    if (!learningPath?.user_progress) return;
+  const handleRestartPath = async () => {
+    if (!learningPath || !user) return;
 
-    // Navigate to current lesson or next available lesson
-    if (learningPath.user_progress.current_lesson_id) {
-      router.push(
-        `/education/lessons/${learningPath.user_progress.current_lesson_id}`
-      );
-    } else {
-      startLearning();
+    setRestarting(true);
+    try {
+      const { restartLearningPath } = await import("@/lib/api");
+      await restartLearningPath(learningPath.id);
+
+      // Refresh the learning path data to update UI
+      await fetchLearningPath();
+
+      // The confirmation modal will close automatically on success
+      console.log("Learning path restarted successfully");
+    } catch (error) {
+      console.error("Error restarting learning path:", error);
+      throw error; // Re-throw to let the modal handle the error
+    } finally {
+      setRestarting(false);
     }
+  };
+
+  const showRestartConfirmation = () => {
+    const hasCompletedLessons = getCompletedLessonsCount() > 0;
+
+    confirmationModal.openModal({
+      title: hasCompletedLessons
+        ? "Restart Learning Path"
+        : "Reset Learning Path",
+      message: hasCompletedLessons
+        ? "Are you sure you want to restart this learning path? This will reset all your lesson progress, but any certificates you've earned will be preserved."
+        : "Are you sure you want to reset your enrollment in this learning path? This will clear any progress markers and let you start fresh.",
+      confirmText: hasCompletedLessons ? "Restart Path" : "Reset Path",
+      cancelText: "Cancel",
+      variant: "warning",
+    });
+  };
+
+  // Helper function to count completed lessons
+  const getCompletedLessonsCount = () => {
+    if (!learningPath?.modules) return 0;
+    let completedCount = 0;
+    learningPath.modules.forEach((module) => {
+      if (module.lessons) {
+        module.lessons.forEach((lesson) => {
+          if (lesson.is_completed) {
+            completedCount++;
+          }
+        });
+      }
+    });
+    return completedCount;
   };
 
   const getLevelBadgeColor = (level: string) => {
@@ -264,7 +323,7 @@ export default function LearningPathDetail() {
 
   const isEnrolled = !!learningPath.user_progress;
   const totalLessons = learningPath.modules.reduce(
-    (sum, module) => sum + module.lessons.length,
+    (sum, module) => sum + (module.lessons?.length || 0),
     0
   );
 
@@ -307,39 +366,67 @@ export default function LearningPathDetail() {
             </div>
           </div>
 
-          {/* Progress Bar (if enrolled) */}
-          {isEnrolled && learningPath.user_progress && (
-            <div className="bg-white rounded-lg shadow p-6 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Your Progress
-                </h3>
-                <span className="text-sm font-medium text-gray-600">
-                  {learningPath.user_progress.progress_percentage}% Complete
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
-                <div
-                  className="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${learningPath.user_progress.progress_percentage}%`,
-                  }}
-                ></div>
-              </div>
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>
-                  {learningPath.user_progress.completed_modules} of{" "}
-                  {learningPath.user_progress.total_modules} modules completed
-                </span>
-                <span>
-                  Last accessed:{" "}
-                  {new Date(
-                    learningPath.user_progress.last_accessed
-                  ).toLocaleDateString()}
-                </span>
+          {/* Completion Banner */}
+          {isEnrolled && learningPath.user_progress?.is_completed && (
+            <div className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 rounded-lg shadow-lg p-6 mb-6 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="flex-shrink-0">
+                    <TrophyIcon className="h-12 w-12 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold">🎉 Congratulations!</h3>
+                    <p className="text-yellow-100 text-lg">
+                      You&apos;ve successfully completed this learning path!
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/education/certificates"
+                  className="bg-white text-yellow-600 px-6 py-3 rounded-lg font-semibold hover:bg-yellow-50 transition-colors inline-flex items-center"
+                >
+                  <TrophyIcon className="h-5 w-5 mr-2" />
+                  View Certificate
+                </Link>
               </div>
             </div>
           )}
+
+          {/* Progress Bar (if enrolled) */}
+          {isEnrolled &&
+            learningPath.user_progress &&
+            !learningPath.user_progress.is_completed && (
+              <div className="bg-white rounded-lg shadow p-6 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Your Progress
+                  </h3>
+                  <span className="text-sm font-medium text-gray-600">
+                    {learningPath.user_progress.progress_percentage}% Complete
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+                  <div
+                    className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${learningPath.user_progress.progress_percentage}%`,
+                    }}
+                  ></div>
+                </div>
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>
+                    {learningPath.user_progress.completed_modules} of{" "}
+                    {learningPath.user_progress.total_modules} modules completed
+                  </span>
+                  <span>
+                    Last accessed:{" "}
+                    {new Date(
+                      learningPath.user_progress.last_accessed
+                    ).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            )}
 
           {/* Action Button */}
           <div className="mb-8">
@@ -351,22 +438,39 @@ export default function LearningPathDetail() {
               >
                 {enrolling ? "Enrolling..." : "Enroll in Course"}
               </button>
-            ) : learningPath.user_progress?.is_completed ? (
-              <button
-                onClick={continueLearning}
-                className="bg-green-600 text-white px-6 py-3 rounded-md text-lg font-medium hover:bg-green-700 transition-colors inline-flex items-center"
-              >
-                <CheckCircleIcon className="h-5 w-5 mr-2" />
-                Review Course
-              </button>
             ) : (
-              <button
-                onClick={continueLearning}
-                className="bg-blue-600 text-white px-6 py-3 rounded-md text-lg font-medium hover:bg-blue-700 transition-colors inline-flex items-center"
-              >
-                <PlayIcon className="h-5 w-5 mr-2" />
-                Continue Learning
-              </button>
+              <div className="flex items-center space-x-4">
+                {learningPath.user_progress?.is_completed ? (
+                  <>
+                    <button
+                      onClick={continueLearning}
+                      className="bg-green-600 text-white px-6 py-3 rounded-md text-lg font-medium hover:bg-green-700 transition-colors inline-flex items-center"
+                    >
+                      <CheckCircleIcon className="h-5 w-5 mr-2" />
+                      Review Course
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={continueLearning}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-md text-lg font-medium hover:bg-blue-700 transition-colors inline-flex items-center"
+                  >
+                    <PlayIcon className="h-5 w-5 mr-2" />
+                    Continue Learning
+                  </button>
+                )}
+
+                {/* Restart Path Button - Only show if there are completed lessons */}
+                {getCompletedLessonsCount() > 0 && (
+                  <button
+                    onClick={showRestartConfirmation}
+                    className="bg-gray-600 text-white px-6 py-3 rounded-md text-lg font-medium hover:bg-gray-700 transition-colors inline-flex items-center"
+                  >
+                    <ArrowLeftIcon className="h-5 w-5 mr-2" />
+                    Restart Path
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -400,7 +504,7 @@ export default function LearningPathDetail() {
                           <ClockIcon className="h-4 w-4 mr-1" />
                           {formatDuration(module.estimated_duration)}
                         </div>
-                        <span>{module.lessons.length} lessons</span>
+                        <span>{module.lessons?.length || 0} lessons</span>
                         {module.user_progress && (
                           <span>
                             {module.user_progress.completed_lessons} of{" "}
@@ -415,7 +519,7 @@ export default function LearningPathDetail() {
                 {/* Lessons */}
                 <div className="p-6">
                   <div className="space-y-3">
-                    {module.lessons
+                    {(module.lessons || [])
                       .filter((lesson) => lesson.is_active)
                       .sort((a, b) => a.sort_order - b.sort_order)
                       .map((lesson, lessonIndex) => {
@@ -455,20 +559,55 @@ export default function LearningPathDetail() {
                                   >
                                     {lesson.lesson_type.toLowerCase()}
                                   </span>
+                                  {!lesson.is_completed &&
+                                    !lesson.is_locked && (
+                                      <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                        Current
+                                      </span>
+                                    )}
                                 </div>
                                 <div className="text-xs text-gray-500 mt-1">
                                   {formatDuration(lesson.estimated_duration)}
                                 </div>
                               </div>
                             </div>
-                            {isAccessible && (
-                              <Link
-                                href={`/education/lessons/${lesson.id}`}
-                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                              >
-                                {lesson.is_completed ? "Review" : "Start"}
-                              </Link>
-                            )}
+
+                            <div className="flex items-center space-x-2">
+                              {/* Show appropriate control for each lesson */}
+                              {isAccessible ? (
+                                // For accessible lessons, show action buttons
+                                <Link
+                                  href={`/education/lessons/${lesson.id}`}
+                                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                                    lesson.is_completed
+                                      ? "text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100"
+                                      : lesson.is_started
+                                      ? "text-orange-600 hover:text-orange-800 bg-orange-50 hover:bg-orange-100"
+                                      : !lesson.is_completed &&
+                                        !lesson.is_locked
+                                      ? "text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100"
+                                      : "text-gray-600 hover:text-gray-800 bg-gray-50 hover:bg-gray-100"
+                                  }`}
+                                >
+                                  {lesson.is_completed
+                                    ? "Review"
+                                    : lesson.is_started
+                                    ? "Continue"
+                                    : !lesson.is_completed && !lesson.is_locked
+                                    ? "Start"
+                                    : "View"}
+                                </Link>
+                              ) : (
+                                // For locked lessons, show only eye icon
+                                <Link
+                                  href={`/education/lessons/${lesson.id}`}
+                                  className="p-2 rounded-md hover:bg-gray-200 transition-colors"
+                                  title="View lesson"
+                                >
+                                  <EyeIcon className="h-4 w-4 text-gray-600" />
+                                </Link>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -478,6 +617,28 @@ export default function LearningPathDetail() {
             ))}
         </div>
       </div>
+
+      {/* Restart Confirmation Modal */}
+      {confirmationModal.isOpen && (
+        <ConfirmationModal
+          isOpen={confirmationModal.isOpen}
+          title={confirmationModal.title}
+          message={confirmationModal.message}
+          onConfirm={confirmationModal.confirm}
+          onClose={confirmationModal.closeModal}
+          confirmText={confirmationModal.confirmText}
+          cancelText={confirmationModal.cancelText}
+          confirmButtonColor={
+            confirmationModal.variant === "danger"
+              ? "red"
+              : confirmationModal.variant === "warning"
+              ? "yellow"
+              : "blue"
+          }
+          isLoading={confirmationModal.loading}
+          error={confirmationModal.error}
+        />
+      )}
     </div>
   );
 }

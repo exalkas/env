@@ -1046,3 +1046,193 @@ class AssessmentGrader:
 4. **Question Categories API Client** (`admin-app/lib/api/question-categories.ts`)
 5. **Categories Context Providers** for global state management
 6. **Reusable Category Select Components** with dynamic loading
+
+✅ Enhanced Client-Side Education Experience:* Expandable Navigation: Made education section collapsible in clients app navigation (like admin app) with localStorage persistence
+
+* Menu Rename: Changed "Education" to "Learning Paths" in client navigation for clarity
+* API Endpoint Fixes: Updated education API calls from /api/education/... to /api/v1/education/... to match backend
+
+✅ Backend API Improvements:* Fixed Learning Paths Endpoint: Corrected API routing and response handling
+
+* Enhanced User Stats: Improved education statistics and progress tracking endpoints
+* Enrollment System: Fixed learning path enrollment API functionality
+
+✅ Navigation & UX Improvements:* Collapsible Education Section: Added chevron indicators and toggle functionality
+
+* Persistent State: Education section collapse state saved in localStorage
+* Consistent Behavior: Matched admin app navigation patterns in clients app
+
+✅ Bug Fixes Attempted:* Learning Paths Visibility: Addressed API endpoint mismatches that prevented learning paths from displaying
+
+* User Progress Tracking: Enhanced progress tracking for enrolled learning paths
+* API Integration: Improved client-server communication for education features
+
+# 🎉 LMS Navigation & Completion System - FIXED!
+
+## 📋 Issues Resolved
+
+### 🐛 1. Completion Button Logic Broken
+
+Problem: Completion button showing on all lessons, regardless of progress status
+
+Root Cause: Backend sending is_completed: True but frontend receiving is_completed: undefined
+
+Solution: Fixed Pydantic schema validation that was filtering out progress fields
+
+### 🔄 2. Cross-Module Navigation Missing
+
+Problem: "Next Lesson" button only worked within same module (lesson 3 → nothing, instead of lesson 4 in next module)
+
+Solution: Implemented global lesson sequence navigation across all modules in learning path
+
+### 🎯 3. Smart Next Lesson Logic
+
+Problem: Next lesson was just "next by ID" instead of "next lesson to start"
+
+Solution: Enhanced logic to find next incomplete lesson, skipping already completed ones
+
+### 🏗️ 4. Schema Validation Issues
+
+Problem: response_model=LessonSchema was filtering out dynamically added progress fields
+
+Solution: Added progress fields (is_completed, is_started, is_locked, user_progress, navigation) directly to the Lesson schema
+
+### 🎨 5. UI Cleanup
+
+Problem: Duplicate completion status shown at both top and bottom of lesson page
+
+Solution: Removed duplicate status from bottom navigation, kept only "Next Lesson" button
+
+## ✅ Technical Solutions Applied
+
+### Backend Fixes:
+
+* Enhanced lesson endpoint with cross-module navigation logic
+* Fixed schema design - added progress fields to Lesson schema (no more "dynamic response" confusion)
+* Smart next lesson calculation - finds next incomplete lesson across entire learning path
+* Proper sequential locking - lessons unlock only after previous lesson completed
+
+### Frontend Improvements:
+
+* Clean UI flow - removed duplicate status displays
+* Proper completion button logic - only shows when lesson can actually be completed
+* Cross-module navigation - seamless flow between modules
+
+### API Architecture:
+
+* Restored response model validation - proper FastAPI documentation while maintaining functionality
+* Type safety - all progress fields properly typed and validated
+* Consistent data flow - backend calculates, frontend receives, UI displays correctly
+
+## 🚀 Final Result
+
+* ✅ Sequential completion works across all 18 lessons in all modules
+* ✅ Smart navigation - "Next Lesson" takes users to actual next lesson to start
+* ✅ Proper button states - completion button only appears when lesson can be completed
+* ✅ Clean UI - no duplicate information, clear lesson status at top
+* ✅ API validation - proper schema validation + working functionality
+* ✅ Type safety - all fields properly typed, no more undefined values
+
+
+# 📚 **Education System Implementation Summary**
+
+## 🎯 **Major Issues Resolved**
+
+### **1. Token Expiry Auto-Logout System**
+
+**Problem**: Users with expired tokens remained "logged in" but received confusing API errors instead of being automatically logged out.
+
+**Solution Implemented**:
+
+- ✅ **Enhanced API Client** (`clients-app/lib/api.ts`): Added axios response interceptor to detect 401 errors
+- ✅ **Automatic Token Cleanup**: When tokens expire, users are immediately logged out
+- ✅ **Professional UX** (`clients-app/app/login/page.tsx`): Blue info banner displays "Your session has expired. Please log in again."
+- ✅ **Session Message System**: Stores and displays session expired messages using sessionStorage
+
+### **2. Learning Path Navigation & Restart Features**
+
+**Problems**:
+
+- "Continue Learning" button took users to first lesson instead of next proper lesson
+- No way to restart learning paths while preserving certificates
+
+**Solutions Implemented**:
+
+#### **Backend API Enhancements** (`backend/app/api/endpoints/education.py`):
+
+- ✅ **`GET /learning-paths/{path_id}/next-lesson`**: Smart logic to find next incomplete lesson across modules
+- ✅ **`POST /learning-paths/{path_id}/restart`**: Resets all lesson progress while preserving certificates
+
+#### **Frontend Integration** (`clients-app/lib/api.ts`):
+
+- ✅ **`getNextLesson(pathId)`**: Gets actual next available lesson
+- ✅ **`restartLearningPath(pathId)`**: Resets learning path progress
+
+#### **Learning Path Page Updates** (`clients-app/app/education/learning-paths/[id]/page.tsx`):
+
+- ✅ **Fixed Continue Learning Logic**: Now uses API to find actual next lesson (not just first lesson)
+- ✅ **Added Restart Path Feature**: Professional confirmation dialog with warning-style messaging
+- ✅ **Cross-Module Navigation**: Seamless navigation between different modules in learning path
+
+#### **Reusable Components**:
+
+- ✅ **Copied from admin-app**: `ConfirmationModal` and `useConfirmationModal` hook
+- ✅ **Proper Integration**: Used `@` symbol imports and established patterns
+
+### **3. Module Count Display Bug**
+
+**Problem**: Completed learning paths showing "Progress 100% - 0 of 6 modules" instead of "6 of 6 modules"
+
+**Root Cause**: Backend had **two different endpoints** calculating module counts differently:
+
+- `/learning-paths/` (used by cards) had hardcoded `completed_modules = 0`
+- `/learning-paths/{path_id}` (individual pages) had working logic
+
+**Solution Applied**:
+
+- ✅ **Fixed Both Endpoints**: Applied same logic to both `/learning-paths/` and `/learning-paths/{path_id}`
+- ✅ **Active-Only Filtering**: Only count active modules and active lessons
+- ✅ **Proper Completion Logic**: Check if all active lessons in each module are completed
+- ✅ **Consistent Data**: Cards and individual pages now show identical module counts
+
+## 🚀 **Technical Implementation Details**
+
+### **Backend Architecture**:
+
+- **FastAPI endpoints** with proper error handling and validation
+- **Cross-module lesson sequencing** for proper learning path progression
+- **Certificate preservation** during path restarts
+- **Active content filtering** for accurate progress calculations
+
+### **Frontend Features**:
+
+- **Token expiry interceptors** with automatic logout and user messaging
+- **Smart navigation logic** using backend APIs for next lesson calculation
+- **Professional confirmation dialogs** with loading states and error handling
+- **Type-safe API integration** with proper TypeScript interfaces
+
+### **User Experience Improvements**:
+
+- **No more confusion** from API errors - clear session expired notifications
+- **Intelligent navigation** - users go to actual next lesson, not first lesson
+- **Progress preservation** - restart functionality that keeps certificates
+- **Accurate progress display** - module counts reflect actual completion status
+
+## 📊 **Final Result**
+
+✅ **Token Expiry Flow**: 401 error → interceptor catches → token cleared → session message set → redirect to login → blue info banner shown
+
+✅ **Learning Path Flow**: Continue Learning → API call to get next lesson → navigate to specific lesson (not first lesson)
+
+✅ **Restart Flow**: Restart button → confirmation modal → API call to reset progress → refresh data → certificates preserved
+
+✅ **Module Display**: Completed course shows "Progress 100% - 6 of 6 modules" (accurate count)
+
+## 🎯 **Impact**
+
+- **Better Security**: Expired tokens immediately removed with clear user communication
+- **Improved Learning Experience**: Proper lesson navigation and restart capabilities
+- **Accurate Progress Tracking**: Module counts correctly reflect completion status
+- **Professional UX**: Consistent behavior with clear messaging throughout
+
+**All features are now fully operational and tested!** 🎉

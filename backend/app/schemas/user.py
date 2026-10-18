@@ -71,4 +71,22 @@ class User(UserInDBBase):
 
 # Properties stored in DB
 class UserInDB(UserInDBBase):
-    hashed_password: str 
+    hashed_password: str
+
+# Notification preferences schemas
+class NotificationPreferences(BaseModel):
+    email_marketing: bool = False
+    email_price_alerts: bool = True
+    email_order_updates: bool = True
+    email_news_digest: bool = True
+    sms_enabled: bool = False
+
+    class Config:
+        from_attributes = True
+
+class NotificationPreferencesUpdate(BaseModel):
+    email_marketing: Optional[bool] = None
+    email_price_alerts: Optional[bool] = None
+    email_order_updates: Optional[bool] = None
+    email_news_digest: Optional[bool] = None
+    sms_enabled: Optional[bool] = None 

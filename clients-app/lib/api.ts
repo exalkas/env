@@ -17,6 +17,34 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Add response interceptor to handle 401 errors (token expiry)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      console.log("Token expired or invalid, logging out user");
+
+      // Import logout function dynamically to avoid circular dependencies
+      import("./auth").then(({ logout }) => {
+        logout(); // Call logout to clear token and redirect
+      });
+
+      // Also clear localStorage immediately
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("token");
+        // Store session expired message
+        sessionStorage.setItem(
+          "auth_message",
+          "Your session has expired. Please log in again."
+        );
+        // Redirect to login
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // User API
 export const fetchUserData = async () => {
   try {
@@ -242,6 +270,311 @@ export const fetchKYCStatus = async () => {
     return response.data;
   } catch (error) {
     console.error("Error fetching KYC status:", error);
+    throw error;
+  }
+};
+
+// User Settings API
+export const updateUserProfile = async (profileData: {
+  full_name?: string;
+  email?: string;
+}) => {
+  try {
+    const response = await api.put("/v1/users/me", profileData);
+    return response.data;
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    throw error;
+  }
+};
+
+export const changePassword = async (passwordData: {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
+}) => {
+  try {
+    const response = await api.put("/v1/users/me/password", passwordData);
+    return response.data;
+  } catch (error) {
+    console.error("Error changing password:", error);
+    throw error;
+  }
+};
+
+export const updateNotificationPreferences = async (preferences: {
+  email_marketing?: boolean;
+  email_price_alerts?: boolean;
+  email_order_updates?: boolean;
+  email_news_digest?: boolean;
+  sms_enabled?: boolean;
+}) => {
+  try {
+    const response = await api.put("/v1/users/me/preferences", preferences);
+    return response.data;
+  } catch (error) {
+    console.error("Error updating notification preferences:", error);
+    throw error;
+  }
+};
+
+export const fetchNotificationPreferences = async () => {
+  try {
+    const response = await api.get("/v1/users/me/preferences");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching notification preferences:", error);
+    throw error;
+  }
+};
+
+export const deactivateAccount = async (reason?: string) => {
+  try {
+    const response = await api.post("/v1/users/me/deactivate", { reason });
+    return response.data;
+  } catch (error) {
+    console.error("Error deactivating account:", error);
+    throw error;
+  }
+};
+
+export const exportUserData = async () => {
+  try {
+    const response = await api.get("/v1/users/me/export", {
+      responseType: "blob",
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error exporting user data:", error);
+    throw error;
+  }
+};
+
+// Education API
+export const fetchLearningPaths = async (params?: {
+  is_active?: boolean;
+  difficulty_level?: string;
+  skip?: number;
+  limit?: number;
+}) => {
+  try {
+    const searchParams = new URLSearchParams();
+    if (params?.is_active !== undefined)
+      searchParams.append("is_active", params.is_active.toString());
+    if (params?.difficulty_level)
+      searchParams.append("difficulty_level", params.difficulty_level);
+    if (params?.skip) searchParams.append("skip", params.skip.toString());
+    if (params?.limit) searchParams.append("limit", params.limit.toString());
+
+    const url = `/v1/education/learning-paths${
+      searchParams.toString() ? "?" + searchParams.toString() : ""
+    }`;
+    const response = await api.get(url);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching learning paths:", error);
+    throw error;
+  }
+};
+
+export const fetchLearningPath = async (pathId: number) => {
+  try {
+    const response = await api.get(`/v1/education/learning-paths/${pathId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching learning path:", error);
+    throw error;
+  }
+};
+
+export const enrollInLearningPath = async (pathId: number) => {
+  try {
+    const response = await api.post(
+      `/v1/education/learning-paths/${pathId}/enroll`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error enrolling in learning path:", error);
+    throw error;
+  }
+};
+
+export const fetchUserStats = async () => {
+  try {
+    const response = await api.get("/v1/education/user-stats");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching user stats:", error);
+    throw error;
+  }
+};
+
+export const fetchLesson = async (lessonId: number) => {
+  try {
+    const response = await api.get(`/v1/education/lessons/${lessonId}`);
+    const lesson = response.data;
+
+    // If lesson is interactive, fetch interactive content
+    if (lesson.lesson_type === "INTERACTIVE" && lesson.interactive_type_id) {
+      try {
+        // Fetch interactive type details
+        const typeResponse = await api.get(
+          `/v1/interactive-content/types/${lesson.interactive_type_id}`
+        );
+
+        // Fetch scenarios for this lesson
+        const scenariosResponse = await api.get(
+          `/v1/interactive-content/lessons/${lessonId}/scenarios`
+        );
+
+        lesson.interactive_content = {
+          type: typeResponse.data,
+          scenarios: scenariosResponse.data || [],
+        };
+      } catch (interactiveError) {
+        console.warn("Failed to load interactive content:", interactiveError);
+        // Continue without interactive content
+      }
+    }
+
+    return lesson;
+  } catch (error) {
+    console.error("Error fetching lesson:", error);
+    throw error;
+  }
+};
+
+export const completeLesson = async (lessonId: number) => {
+  try {
+    const response = await api.post(
+      `/v1/education/lessons/${lessonId}/complete`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error completing lesson:", error);
+    throw error;
+  }
+};
+
+export const getNextLesson = async (pathId: number) => {
+  try {
+    const response = await api.get(
+      `/v1/education/learning-paths/${pathId}/next-lesson`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error getting next lesson:", error);
+    throw error;
+  }
+};
+
+export const restartLearningPath = async (pathId: number) => {
+  try {
+    const response = await api.post(
+      `/v1/education/learning-paths/${pathId}/restart`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error restarting learning path:", error);
+    throw error;
+  }
+};
+
+// Certificate API
+export const fetchCertificates = async () => {
+  try {
+    const response = await api.get("/v1/education/certificates");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching certificates:", error);
+    throw error;
+  }
+};
+
+export const fetchCertificate = async (certificateId: number) => {
+  try {
+    const response = await api.get(
+      `/v1/education/certificates/${certificateId}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching certificate:", error);
+    throw error;
+  }
+};
+
+export const downloadCertificate = async (certificateId: number) => {
+  try {
+    const response = await api.get(
+      `/v1/education/certificates/${certificateId}/download`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error downloading certificate:", error);
+    throw error;
+  }
+};
+
+export const verifyCertificate = async (certificateId: number) => {
+  try {
+    const response = await api.get(
+      `/v1/education/certificates/${certificateId}/verify`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error verifying certificate:", error);
+    throw error;
+  }
+};
+
+export const fetchUserAchievements = async () => {
+  try {
+    const response = await api.get("/v1/education/achievements/");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching user achievements:", error);
+    throw error;
+  }
+};
+
+// Interactive Content API
+export const fetchInteractiveTypes = async () => {
+  try {
+    const response = await api.get("/v1/interactive-content/types");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching interactive types:", error);
+    throw error;
+  }
+};
+
+export const fetchInteractiveScenarios = async (lessonId: number) => {
+  try {
+    const response = await api.get(
+      `/v1/interactive-content/lessons/${lessonId}/scenarios`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching interactive scenarios:", error);
+    throw error;
+  }
+};
+
+export const submitInteractiveResponse = async (
+  scenarioId: number,
+  response: any
+) => {
+  try {
+    const apiResponse = await api.post(
+      `/v1/interactive-content/scenarios/${scenarioId}/submit`,
+      {
+        user_response: response,
+        completed_at: new Date().toISOString(),
+      }
+    );
+    return apiResponse.data;
+  } catch (error) {
+    console.error("Error submitting interactive response:", error);
     throw error;
   }
 };

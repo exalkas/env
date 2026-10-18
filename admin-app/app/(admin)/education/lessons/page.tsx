@@ -58,7 +58,6 @@ export default function LessonsOverview() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [levelFilter, setLevelFilter] = useState<string>("all");
 
   const {
     isOpen: isModalOpen,
@@ -81,54 +80,21 @@ export default function LessonsOverview() {
 
   useEffect(() => {
     filterLessons();
-  }, [lessons, searchQuery, statusFilter, typeFilter, levelFilter]);
+  }, [lessons, searchQuery, statusFilter, typeFilter]);
 
   const fetchLessons = async () => {
     try {
-      // Fetch all learning paths first
-      const pathsResponse = await fetchWithAuth(
-        "http://localhost:8000/api/v1/education/learning-paths/"
+      // Use the updated lessons API that includes full relationship data
+      const response = await fetchWithAuth(
+        "http://localhost:8000/api/v1/education/lessons/"
       );
-      if (pathsResponse.ok) {
-        const learningPaths = await pathsResponse.json();
 
-        const allLessons: Lesson[] = [];
-
-        // Fetch modules and lessons for each learning path
-        for (const path of learningPaths) {
-          const modulesResponse = await fetchWithAuth(
-            `http://localhost:8000/api/v1/education/learning-paths/${path.id}/modules`
-          );
-          if (modulesResponse.ok) {
-            const modules = await modulesResponse.json();
-
-            // Fetch lessons for each module
-            for (const moduleItem of modules) {
-              const lessonsResponse = await fetchWithAuth(
-                `http://localhost:8000/api/v1/education/modules/${moduleItem.id}/lessons`
-              );
-              if (lessonsResponse.ok) {
-                const moduleLessons = await lessonsResponse.json();
-                const lessonsWithContext = moduleLessons.map((lesson: any) => ({
-                  ...lesson,
-                  module: {
-                    id: moduleItem.id,
-                    title: moduleItem.title,
-                    learning_path_id: path.id,
-                    learning_path: {
-                      id: path.id,
-                      title: path.title,
-                      level: path.level,
-                    },
-                  },
-                }));
-                allLessons.push(...lessonsWithContext);
-              }
-            }
-          }
-        }
-        setLessons(allLessons);
+      if (!response.ok) {
+        throw new Error("Failed to fetch lessons");
       }
+
+      const lessons = await response.json();
+      setLessons(lessons);
     } catch (error) {
       console.error("Error fetching lessons:", error);
       addNotification("error", "Failed to load lessons");
@@ -165,13 +131,6 @@ export default function LessonsOverview() {
     // Type filter
     if (typeFilter !== "all") {
       filtered = filtered.filter((lesson) => lesson.lesson_type === typeFilter);
-    }
-
-    // Level filter
-    if (levelFilter !== "all") {
-      filtered = filtered.filter(
-        (lesson) => lesson.module?.learning_path?.level === levelFilter
-      );
     }
 
     setFilteredLessons(filtered);
@@ -295,14 +254,18 @@ export default function LessonsOverview() {
       ),
     },
     {
-      key: "module.learning_path.level",
-      label: "Level",
+      key: "module.title",
+      label: "Module",
       sortable: true,
       render: (lesson) => (
-        <StatusBadge
-          status={lesson.module?.learning_path?.level || "Unknown"}
-          size="sm"
-        />
+        <div className="text-sm">
+          <div className="font-medium text-gray-900">
+            {lesson.module?.title || "No Module"}
+          </div>
+          <div className="text-gray-500 text-xs">
+            {lesson.module?.learning_path?.title || "Unknown Path"}
+          </div>
+        </div>
       ),
     },
     {
@@ -322,7 +285,10 @@ export default function LessonsOverview() {
     {
       type: "view",
       label: "View",
-      href: (lesson) => `/education/lessons/${lesson.id}`,
+      href: (lesson) =>
+        `/education/lessons/${lesson.id}?from=${encodeURIComponent(
+          "/education/lessons"
+        )}`,
     },
     {
       type: "edit",
@@ -389,7 +355,7 @@ export default function LessonsOverview() {
 
       {/* Filters */}
       <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {/* Search */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -431,22 +397,6 @@ export default function LessonsOverview() {
               <option value="VIDEO">Video</option>
               <option value="INTERACTIVE">Interactive</option>
               <option value="QUIZ">Quiz</option>
-            </FormSelect>
-          </div>
-
-          {/* Level Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Level
-            </label>
-            <FormSelect
-              value={levelFilter}
-              onChange={(e) => setLevelFilter(e.target.value)}
-            >
-              <option value="all">All Levels</option>
-              <option value="BEGINNER">Beginner</option>
-              <option value="INTERMEDIATE">Intermediate</option>
-              <option value="ADVANCED">Advanced</option>
             </FormSelect>
           </div>
         </div>
@@ -505,7 +455,6 @@ export default function LessonsOverview() {
                       setSearchQuery("");
                       setStatusFilter("all");
                       setTypeFilter("all");
-                      setLevelFilter("all");
                     },
                   }
             }

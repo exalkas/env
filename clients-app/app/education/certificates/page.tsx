@@ -10,16 +10,15 @@ import {
   ShareIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
+import jsPDF from "jspdf";
 
 interface Certificate {
   id: number;
   learning_path_id: number;
   user_id: number;
-  certificate_number: string;
+  certificate_name: string;
+  certificate_url?: string;
   issued_date: string;
-  completion_date: string;
-  final_score: number;
-  is_valid: boolean;
   learning_path: {
     id: number;
     title: string;
@@ -74,15 +73,11 @@ export default function CertificatesPage() {
 
   const fetchCertificates = async () => {
     try {
-      const response = await fetch("/api/education/certificates", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setCertificates(data);
-      }
+      console.log("Fetching certificates...");
+      const { fetchCertificates } = await import("@/lib/api");
+      const data = await fetchCertificates();
+      console.log("Certificates received:", data);
+      setCertificates(data);
     } catch (error) {
       console.error("Error fetching certificates:", error);
     }
@@ -90,31 +85,44 @@ export default function CertificatesPage() {
 
   const fetchAchievements = async () => {
     try {
-      const response = await fetch("/api/education/achievements", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setAchievements(data);
-      }
+      console.log("Fetching achievements...");
+      const { fetchUserAchievements } = await import("@/lib/api");
+      const data = await fetchUserAchievements();
+      console.log("Achievements received:", data);
+
+      // Transform to match frontend interface
+      const transformedAchievements = data.map((achievement: any) => ({
+        id: achievement.id,
+        type: achievement.achievement_type,
+        title: achievement.title,
+        description: achievement.description,
+        icon: achievement.icon,
+        earned_date: achievement.earned_at,
+        learning_path: achievement.learning_path,
+      }));
+
+      setAchievements(transformedAchievements);
     } catch (error) {
       console.error("Error fetching achievements:", error);
+      setAchievements([]); // Fallback to empty array
     }
   };
 
   const fetchStats = async () => {
     try {
-      const response = await fetch("/api/education/user-stats/detailed", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+      console.log("Fetching stats...");
+      const { fetchUserStats } = await import("@/lib/api");
+      const data = await fetchUserStats();
+      console.log("Stats received:", data);
+
+      // Use real stats from backend
+      setStats({
+        total_certificates: data.certificates_earned || 0,
+        certificates_this_month: data.certificates_this_month || 0,
+        average_score: data.average_score || 0,
+        learning_streak: data.current_streak || 0,
+        total_achievements: data.total_achievements || 0,
       });
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
     } catch (error) {
       console.error("Error fetching stats:", error);
     } finally {
@@ -124,47 +132,270 @@ export default function CertificatesPage() {
 
   const downloadCertificate = async (certificateId: number) => {
     try {
-      const response = await fetch(
-        `/api/education/certificates/${certificateId}/download`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
+      // Generate and download PDF certificate
+      const certificate = certificates.find((c) => c.id === certificateId);
+      if (!certificate) return;
+
+      // Generate impressive certificate number
+      const currentYear = new Date().getFullYear();
+      const paddedId = String(certificateId).padStart(4, "0");
+      const randomSuffix = Math.floor(Math.random() * 900) + 100; // 3-digit random number
+      const certificateNumber = `EMI-${currentYear}-${paddedId}-${randomSuffix}`;
+
+      // Create PDF certificate
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageWidth = pdf.internal.pageSize.width;
+      const pageHeight = pdf.internal.pageSize.height;
+
+      // Add border
+      pdf.setDrawColor(52, 152, 219); // Blue border
+      pdf.setLineWidth(2);
+      pdf.rect(10, 10, pageWidth - 20, pageHeight - 20);
+
+      // Add inner decorative border
+      pdf.setDrawColor(231, 76, 60); // Red decorative border
+      pdf.setLineWidth(0.5);
+      pdf.rect(15, 15, pageWidth - 30, pageHeight - 30);
+
+      // Header - Certificate Title
+      pdf.setFontSize(28);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(52, 152, 219); // Blue
+      pdf.text("CERTIFICATE OF COMPLETION", pageWidth / 2, 35, {
+        align: "center",
+      });
+
+      // Decorative line under title
+      pdf.setDrawColor(52, 152, 219);
+      pdf.setLineWidth(1);
+      pdf.line(50, 40, pageWidth - 50, 40);
+
+      // This certifies that text
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(0, 0, 0);
+      pdf.text("This certifies that", pageWidth / 2, 55, { align: "center" });
+
+      // Student name
+      pdf.setFontSize(24);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(231, 76, 60); // Red
+      const studentName = user?.full_name || user?.email || "Student";
+      pdf.text(studentName, pageWidth / 2, 75, { align: "center" });
+
+      // Has successfully completed text
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(0, 0, 0);
+      pdf.text("has successfully completed the course", pageWidth / 2, 90, {
+        align: "center",
+      });
+
+      // Course title
+      pdf.setFontSize(18);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(52, 152, 219); // Blue
+      const maxWidth = pageWidth - 40;
+      const splitTitle = pdf.splitTextToSize(
+        certificate.learning_path.title,
+        maxWidth
       );
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `certificate-${certificateId}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+      pdf.text(splitTitle, pageWidth / 2, 110, { align: "center" });
+
+      // Calculate y position after title (depends on how many lines)
+      const titleHeight = splitTitle.length * 6;
+      let currentY = 110 + titleHeight + 10;
+
+      // Course details
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(0, 0, 0);
+
+      const completionDate = (() => {
+        if (!certificate.issued_date) return new Date().toLocaleDateString();
+        const date = new Date(certificate.issued_date);
+        return isNaN(date.getTime())
+          ? new Date().toLocaleDateString()
+          : date.toLocaleDateString();
+      })();
+
+      const details = [
+        `Level: ${certificate.learning_path.level}`,
+        `Completion Date: ${completionDate}`,
+        `Certificate ID: ${certificateNumber}`,
+      ];
+
+      details.forEach((detail, index) => {
+        pdf.text(detail, pageWidth / 2, currentY + index * 8, {
+          align: "center",
+        });
+      });
+
+      currentY += 30;
+
+      // Issued by section
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(52, 152, 219);
+      pdf.text(
+        "Issued by: Emisify Carbon Trading Platform",
+        pageWidth / 2,
+        currentY,
+        { align: "center" }
+      );
+
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(0, 0, 0);
+      pdf.text("emisify.com", pageWidth / 2, currentY + 8, {
+        align: "center",
+      });
+
+      // Add golden seal PNG
+      const sealX = pageWidth - 60; // Position on the right side
+      const sealY = pageHeight - 60; // Position at bottom right
+      const sealSize = 50; // Size of the seal
+
+      // Add golden seal PNG
+      try {
+        console.log("🔍 Attempting to load golden seal PNG...");
+        const sealImg = new Image();
+
+        const imageLoaded = await new Promise<boolean>((resolve, reject) => {
+          sealImg.onload = () => {
+            console.log("✅ Golden seal PNG loaded successfully!");
+            resolve(true);
+          };
+          sealImg.onerror = (error) => {
+            console.error("❌ Golden seal PNG failed to load:", error);
+            reject(new Error("Image failed to load"));
+          };
+
+          // Try loading the image
+          sealImg.src = "/golden_seal.png";
+          console.log("📡 Requesting image from:", sealImg.src);
+
+          // Set a timeout in case image doesn't load
+          setTimeout(() => {
+            console.warn("⏰ Image load timeout after 5 seconds");
+            reject(new Error("Image load timeout"));
+          }, 5000);
+        });
+
+        if (imageLoaded) {
+          console.log("🎨 Converting PNG to PDF format...");
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+
+          if (!ctx) {
+            throw new Error("Canvas context not available");
+          }
+
+          canvas.width = sealSize * 2;
+          canvas.height = sealSize * 2;
+
+          ctx.drawImage(sealImg, 0, 0, canvas.width, canvas.height);
+          const imgData = canvas.toDataURL("image/png");
+
+          console.log("📄 Adding PNG seal to PDF...");
+          pdf.addImage(
+            imgData,
+            "PNG",
+            sealX - sealSize / 2,
+            sealY - sealSize / 2,
+            sealSize,
+            sealSize
+          );
+          console.log("🎉 Golden seal PNG successfully added to certificate!");
+        }
+      } catch (error) {
+        console.warn("⚠️ PNG seal failed, using vector fallback:", error);
+
+        // Fallback: Draw golden seal
+        const sealRadius = 25;
+        pdf.setFillColor(255, 215, 0); // Gold color
+        pdf.setDrawColor(184, 134, 11); // Darker gold for border
+        pdf.setLineWidth(2);
+        pdf.circle(sealX, sealY, sealRadius, "FD");
+
+        // Inner circle
+        pdf.setFillColor(255, 223, 0); // Lighter gold
+        pdf.setDrawColor(184, 134, 11);
+        pdf.setLineWidth(1);
+        pdf.circle(sealX, sealY, sealRadius - 5, "FD");
+
+        // Seal text
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(184, 134, 11);
+        pdf.text("EMISIFY", sealX, sealY - 3, { align: "center" });
+        pdf.setFontSize(6);
+        pdf.text("CERTIFIED", sealX, sealY + 5, { align: "center" });
       }
+
+      // Validation text
+      currentY += 25;
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "italic");
+      pdf.setTextColor(100, 100, 100);
+      const validationText =
+        "This certificate validates the completion of all required coursework and assessments for the above-mentioned learning path in carbon markets and environmental trading.";
+      const splitValidation = pdf.splitTextToSize(validationText, maxWidth);
+      pdf.text(splitValidation, pageWidth / 2, currentY, { align: "center" });
+
+      // Download the PDF
+      const fileName = `certificate-${certificate.learning_path.title.replace(
+        /[^a-zA-Z0-9]/g,
+        "-"
+      )}-${certificate.id}.pdf`;
+      pdf.save(fileName);
     } catch (error) {
       console.error("Error downloading certificate:", error);
     }
   };
 
   const shareCertificate = async (certificate: Certificate) => {
-    const shareData = {
-      title: `${certificate.learning_path.title} Certificate`,
-      text: `I just completed ${certificate.learning_path.title} with a score of ${certificate.final_score}%!`,
-      url: `${window.location.origin}/education/certificates/${certificate.id}/verify`,
-    };
+    const achievementText = `🎉 I just completed "${certificate.learning_path.title}" on Emisify! 🌱 Proud to be expanding my knowledge in carbon markets and environmental trading. #CarbonTrading #SustainableFuture #LearningJourney`;
+    const promotionalUrl = `https://emisify.com`;
+    const fullText = `${achievementText}\n\nLearn carbon trading at: ${promotionalUrl}`;
 
+    // Try native sharing first, but be more strategic about it
     if (navigator.share) {
       try {
-        await navigator.share(shareData);
+        // For better compatibility, try text-first approach
+        await navigator.share({
+          text: fullText,
+        });
+        return; // Success!
       } catch (error) {
-        console.error("Error sharing certificate:", error);
+        // If text-only fails, try with separate fields
+        try {
+          await navigator.share({
+            title: `${certificate.learning_path.title} - Certificate of Completion`,
+            text: achievementText,
+            url: promotionalUrl,
+          });
+          return; // Success!
+        } catch (error2) {
+          console.log("Native sharing failed, using clipboard fallback");
+        }
       }
-    } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
-      alert("Certificate link copied to clipboard!");
+    }
+
+    // Fallback: copy to clipboard (works everywhere)
+    try {
+      await navigator.clipboard.writeText(fullText);
+      alert(
+        "✅ Certificate shared! The text has been copied to your clipboard and includes both your message and website link. You can paste it anywhere!"
+      );
+    } catch (clipboardError) {
+      // Final fallback: manual copy
+      prompt("Please copy this text to share your achievement:", fullText);
     }
   };
 
@@ -442,12 +673,8 @@ export default function CertificatesPage() {
                             </span>
                           </div>
                         </div>
-                        <div
-                          className={`px-3 py-1 rounded-full text-sm font-medium border ${getScoreBadgeColor(
-                            certificate.final_score
-                          )}`}
-                        >
-                          {certificate.final_score}%
+                        <div className="px-3 py-1 rounded-full text-sm font-medium border bg-green-100 text-green-800 border-green-300">
+                          Completed
                         </div>
                       </div>
 
@@ -461,18 +688,26 @@ export default function CertificatesPage() {
 
                       {/* Certificate Details */}
                       <div className="text-xs text-gray-500 mb-4 space-y-1">
-                        <div>Certificate #{certificate.certificate_number}</div>
+                        <div>Certificate #{certificate.certificate_name}</div>
                         <div>
                           Completed:{" "}
-                          {new Date(
-                            certificate.completion_date
-                          ).toLocaleDateString()}
+                          {(() => {
+                            if (!certificate.issued_date) return "Recently";
+                            const date = new Date(certificate.issued_date);
+                            return isNaN(date.getTime())
+                              ? "Recently"
+                              : date.toLocaleDateString();
+                          })()}
                         </div>
                         <div>
                           Issued:{" "}
-                          {new Date(
-                            certificate.issued_date
-                          ).toLocaleDateString()}
+                          {(() => {
+                            if (!certificate.issued_date) return "Recently";
+                            const date = new Date(certificate.issued_date);
+                            return isNaN(date.getTime())
+                              ? "Recently"
+                              : date.toLocaleDateString();
+                          })()}
                         </div>
                       </div>
 

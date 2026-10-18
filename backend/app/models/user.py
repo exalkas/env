@@ -20,6 +20,13 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
+    # Notification preferences
+    email_marketing = Column(Boolean, default=False)
+    email_price_alerts = Column(Boolean, default=True)
+    email_order_updates = Column(Boolean, default=True)
+    email_news_digest = Column(Boolean, default=True)
+    sms_enabled = Column(Boolean, default=False)
+    
     # Relationships
     role = relationship("Role", back_populates="users")
     orders = relationship("Order", foreign_keys="Order.user_id", back_populates="user")
@@ -28,6 +35,7 @@ class User(Base):
     learning_progress = relationship("UserProgress", back_populates="user")
     assessment_attempts = relationship("UserAssessmentAttempt", back_populates="user")
     certificates = relationship("Certificate", back_populates="user")
+    achievements = relationship("Achievement", back_populates="user")
     kyc_submissions = relationship("KYCSubmission", foreign_keys="KYCSubmission.user_id", back_populates="user")
     created_templates = relationship("EmailTemplate", back_populates="creator")
     email_logs = relationship("EmailActionLog", back_populates="user")

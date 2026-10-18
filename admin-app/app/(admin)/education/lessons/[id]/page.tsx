@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeftIcon,
   PencilIcon,
@@ -38,8 +38,19 @@ interface Lesson {
 export default function LessonDetail() {
   const { id } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Context-aware navigation: determine where the back button should go
+  const getBackUrl = () => {
+    const from = searchParams.get("from");
+    if (from) {
+      return from; // User came from a specific page (e.g., lessons list)
+    }
+    // Default: go to the module page this lesson belongs to
+    return `/education/modules/${lesson?.module?.id || lesson?.module_id}`;
+  };
 
   useEffect(() => {
     if (id) {
@@ -86,7 +97,7 @@ export default function LessonDetail() {
       <div className="mb-8">
         <div className="flex items-center mb-4">
           <Link
-            href={`/education/modules/${lesson.module_id}`}
+            href={getBackUrl()}
             className="mr-4 p-2 text-gray-600 hover:text-gray-900 transition-colors"
           >
             <ArrowLeftIcon className="h-5 w-5" />

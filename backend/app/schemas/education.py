@@ -54,10 +54,15 @@ class LearningPathInDBBase(LearningPathBase):
         from_attributes = True
 
 class LearningPath(LearningPathInDBBase):
-    pass
+    modules_count: Optional[int] = None
+    enrolled_users: Optional[int] = None
+    user_progress: Optional['UserProgressDetail'] = None
 
 class LearningPathWithModules(LearningPathInDBBase):
-    modules: List['Module'] = []
+    modules: List['ModuleWithLessons'] = []
+    modules_count: Optional[int] = None
+    enrolled_users: Optional[int] = None
+    user_progress: Optional['UserProgressDetail'] = None
 
 # Module schemas
 class ModuleBase(BaseModel):
@@ -69,6 +74,10 @@ class ModuleBase(BaseModel):
 
 class ModuleCreate(ModuleBase):
     learning_path_id: int
+
+class ModuleCreateNested(ModuleBase):
+    """Module creation schema for nested endpoints where learning_path_id comes from URL"""
+    pass
 
 class ModuleUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255)
@@ -86,16 +95,18 @@ class ModuleInDBBase(ModuleBase):
         from_attributes = True
 
 class Module(ModuleInDBBase):
-    pass
+    learning_path_id: int
 
-class ModuleWithLessons(LearningPathInDBBase):
-    modules: List['Module'] = []
+class ModuleWithLessons(ModuleInDBBase):
+    learning_path_id: int
+    lessons: List['LessonBasic'] = []
 
 # Lesson schemas
 class LessonBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     content: str = Field(..., min_length=1)
     lesson_type: Optional[str] = None
+    interactive_type_id: Optional[int] = None
     estimated_duration: Optional[int] = None
     sort_order: int = 0
     is_active: bool = True
@@ -103,27 +114,99 @@ class LessonBase(BaseModel):
 class LessonCreate(LessonBase):
     module_id: int
 
+class LessonCreateNested(LessonBase):
+    """Lesson creation schema for nested endpoints where module_id comes from URL"""
+    pass
+
 class LessonUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     content: Optional[str] = Field(None, min_length=1)
     lesson_type: Optional[str] = None
+    interactive_type_id: Optional[int] = None
     estimated_duration: Optional[int] = None
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
 
 class LessonInDBBase(LessonBase):
     id: int
+    module_id: int  # Include the foreign key
     created_at: datetime
     updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
-class Lesson(LessonInDBBase):
+class LessonBasic(LessonInDBBase):
+    """Basic lesson schema without circular references"""
+    is_completed: Optional[bool] = False
+    is_started: Optional[bool] = False
+    is_locked: Optional[bool] = False
+
+# Basic schemas without circular references
+class LearningPathBasic(LearningPathInDBBase):
+    """Basic learning path schema without complex relationships"""
     pass
+
+class ModuleBasic(ModuleInDBBase):
+    learning_path_id: int
+    learning_path: Optional[LearningPathBasic] = None
+
+class LessonAdminSchema(LessonInDBBase):
+    """Admin lesson schema without progress fields for admin listing"""
+    module: Optional[ModuleBasic] = None
+
+class Lesson(LessonInDBBase):
+    module: Optional[ModuleBasic] = None  # Include the relationship (no quotes needed now)
+    # Progress fields for API responses
+    is_completed: Optional[bool] = False
+    is_started: Optional[bool] = False
+    is_locked: Optional[bool] = False
+    user_progress: Optional[Dict[str, Any]] = None
+    navigation: Optional[Dict[str, Any]] = None
+
+class LessonProgressInfo(BaseModel):
+    """User progress for a specific lesson"""
+    is_completed: bool = False
+    completed_at: Optional[datetime] = None
+    progress_percentage: int = 0
+
+class LessonNavigationInfo(BaseModel):
+    """Navigation information for lessons"""
+    previous_lesson: Optional[Dict[str, Any]] = None
+    next_lesson: Optional[Dict[str, Any]] = None
+
+class LessonSchema(BaseModel):
+    """Comprehensive lesson schema with module and learning path info"""
+    # Base lesson fields
+    id: int
+    title: str
+    content: str
+    lesson_type: Optional[str] = None
+    estimated_duration: Optional[int] = None
+    sort_order: int = 0
+    is_active: bool = True
+    module_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    # Progress fields (dynamically calculated)
+    is_completed: bool = False
+    is_started: bool = False
+    is_locked: bool = False
+    user_progress: LessonProgressInfo
+    navigation: LessonNavigationInfo
+    
+    # Relationship data (complete module info)
+    module: Dict[str, Any]
+    
+    class Config:
+        from_attributes = True
 
 class LessonWithAssessments(LessonInDBBase):
     assessments: List['Assessment'] = []
+
+# Schema aliases for API endpoints
+ModuleSchema = Module  # Use basic Module without lessons
 
 # Question Option schemas
 class QuestionOptionBase(BaseModel):
@@ -343,8 +426,44 @@ class CertificateInDBBase(CertificateBase):
     class Config:
         from_attributes = True
 
+# Simple learning path info for certificates (without user progress)
+class LearningPathBasicInfo(BaseModel):
+    id: int
+    title: str
+    description: Optional[str] = None
+    level: str = "BEGINNER"
+    estimated_duration: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+class CertificateSchema(CertificateInDBBase):
+    learning_path: Optional[LearningPathBasicInfo] = None
+
+# Keep original for backward compatibility
 class Certificate(CertificateInDBBase):
+    learning_path: Optional['LearningPath'] = None
+
+# Achievement schemas
+class AchievementBase(BaseModel):
+    user_id: int
+    achievement_type: str
+    title: str
+    description: str
+    icon: str = "🏆"
+    learning_path_id: Optional[int] = None
+
+class AchievementCreate(AchievementBase):
     pass
+
+class Achievement(AchievementBase):
+    id: int
+    earned_at: datetime
+    is_active: bool = True
+    learning_path: Optional[LearningPathBasicInfo] = None
+
+    class Config:
+        from_attributes = True
 
 # Glossary Term schemas
 class GlossaryTermBase(BaseModel):
@@ -375,6 +494,42 @@ class GlossaryTerm(GlossaryTermBase):
 
     class Config:
         from_attributes = True
+
+# User Progress schemas
+class UserProgressBase(BaseModel):
+    user_id: int
+    learning_path_id: Optional[int] = None
+    lesson_id: Optional[int] = None
+    completed: Optional[bool] = None
+    score: Optional[int] = None
+    time_spent_minutes: Optional[int] = None
+
+class UserProgress(UserProgressBase):
+    id: int
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class UserProgressDetail(BaseModel):
+    id: int
+    progress_percentage: int
+    completed_modules: int
+    total_modules: int
+    last_accessed: datetime
+    is_completed: bool
+
+class UserStats(BaseModel):
+    enrolled_paths: int
+    completed_paths: int
+    total_learning_time: int
+    certificates_earned: int
+    current_streak: int
+    certificates_this_month: int
+    average_score: float
+    total_achievements: int
 
 # Response schemas for API endpoints
 class QuestionBank(BaseModel):
@@ -415,6 +570,7 @@ class EducationOverviewStats(BaseModel):
     completion_rate: float
 
 # Update forward references
+LearningPath.model_rebuild()
 LearningPathWithModules.model_rebuild()
 ModuleWithLessons.model_rebuild()
 LessonWithAssessments.model_rebuild() 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.endpoints import users, auth, subscriptions, market, news, news_categories, news_automation, orders, roles, permissions, prompts, education, question_categories, payments, kyc, email, email_management
+from app.api.endpoints import users, auth, subscriptions, market, news, news_categories, news_automation, orders, roles, permissions, prompts, education, question_categories, payments, kyc, email, email_management, interactive_content
 
 api_router = APIRouter()
 api_router.include_router(users.router, prefix="/users", tags=["users"])
@@ -16,6 +16,7 @@ api_router.include_router(permissions.router, prefix="/permissions", tags=["perm
 api_router.include_router(prompts.router, prefix="/prompts", tags=["prompts"])
 api_router.include_router(question_categories.router, prefix="/question-categories", tags=["question-categories"])
 api_router.include_router(education.router, prefix="/education", tags=["education"])
+api_router.include_router(interactive_content.router, prefix="/interactive-content", tags=["interactive-content"])
 api_router.include_router(payments.router, prefix="/payments", tags=["payments"])
 api_router.include_router(kyc.router, prefix="/kyc", tags=["kyc"])
 api_router.include_router(email.router, prefix="/email", tags=["email"])

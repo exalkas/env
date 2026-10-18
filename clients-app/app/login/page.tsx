@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [sessionMessage, setSessionMessage] = useState("");
 
   const { login, error: authError, user, loading } = useAuth();
   const router = useRouter();
@@ -19,6 +20,17 @@ export default function LoginPage() {
   const redirectPath = searchParams?.get("redirect");
   const planParam = searchParams?.get("plan");
   const registered = searchParams?.get("registered");
+
+  // Check for session expired message
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const authMessage = sessionStorage.getItem("auth_message");
+      if (authMessage) {
+        setSessionMessage(authMessage);
+        sessionStorage.removeItem("auth_message"); // Clear the message
+      }
+    }
+  }, []);
 
   // Show registration success message
   useEffect(() => {
@@ -46,6 +58,7 @@ export default function LoginPage() {
     e.preventDefault();
     setFormError("");
     setSuccessMessage("");
+    setSessionMessage(""); // Clear session message when logging in
 
     if (!email || !password) {
       setFormError("Please enter both email and password");
@@ -125,6 +138,27 @@ export default function LoginPage() {
                   />
                 </svg>
                 <p>{successMessage}</p>
+              </div>
+            </div>
+          )}
+
+          {sessionMessage && (
+            <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+              <div className="flex">
+                <svg
+                  className="h-5 w-5 text-blue-400 mr-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <p>{sessionMessage}</p>
               </div>
             </div>
           )}

@@ -129,8 +129,8 @@ export default function CreateLesson() {
             const modules = await modulesResponse.json();
             pathsWithModules.push({
               ...path,
-              modules: modules.map((module: any) => ({
-                ...module,
+              modules: modules.map((moduleItem: any) => ({
+                ...moduleItem,
                 learning_path: {
                   id: path.id,
                   title: path.title,
@@ -168,9 +168,9 @@ export default function CreateLesson() {
 
   const getSelectedModule = (): Module | null => {
     for (const path of learningPaths) {
-      for (const module of path.modules) {
-        if (module.id.toString() === selectedModuleId) {
-          return module;
+      for (const moduleItem of path.modules) {
+        if (moduleItem.id.toString() === selectedModuleId) {
+          return moduleItem;
         }
       }
     }
@@ -210,7 +210,10 @@ export default function CreateLesson() {
 
       if (response.ok) {
         addNotification("success", "Lesson created successfully!");
-        router.push("/education/lessons");
+        // Redirect to the module page that contains the new lesson
+        setTimeout(() => {
+          router.push(`/education/modules/${selectedModuleId}`);
+        }, 1500);
       } else {
         const errorData = await response.json().catch(() => ({}));
         if (errorData.detail) {
@@ -313,9 +316,9 @@ export default function CreateLesson() {
               <option value="">Choose a module...</option>
               {learningPaths.map((path) => (
                 <optgroup key={path.id} label={`${path.title} (${path.level})`}>
-                  {path.modules.map((module) => (
-                    <option key={module.id} value={module.id}>
-                      {module.title}
+                  {path.modules.map((moduleItem) => (
+                    <option key={moduleItem.id} value={moduleItem.id}>
+                      {moduleItem.title}
                     </option>
                   ))}
                 </optgroup>

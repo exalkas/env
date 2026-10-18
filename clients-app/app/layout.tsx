@@ -4,6 +4,7 @@ import "./globals.css";
 import { Inter } from "next/font/google";
 import { AuthProvider } from "@/lib/AuthContext";
 import { MarketProvider } from "@/lib/MarketContext";
+import { NotificationProvider } from "@/lib/contexts/NotificationContext";
 import DashboardLayout from "@/components/DashboardLayout";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -18,7 +19,9 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <MarketProvider>
-            <DashboardLayout>{children}</DashboardLayout>
+            <NotificationProvider>
+              <DashboardLayout>{children}</DashboardLayout>
+            </NotificationProvider>
           </MarketProvider>
         </AuthProvider>
       </body>

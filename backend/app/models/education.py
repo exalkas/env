@@ -80,6 +80,7 @@ class Lesson(Base):
     title = Column(String(255), nullable=False, index=True)
     content = Column(Text, nullable=False)
     lesson_type = Column(String(50), nullable=True)
+    interactive_type_id = Column(Integer, ForeignKey("interactive_lesson_types.id", ondelete="SET NULL"), nullable=True)
     estimated_duration = Column(Integer, nullable=True)
     sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, default=True)
@@ -90,6 +91,7 @@ class Lesson(Base):
     module = relationship("Module", back_populates="lessons")
     assessments = relationship("Assessment", back_populates="lesson", cascade="all, delete-orphan")
     user_progress = relationship("UserProgress", back_populates="lesson")
+    interactive_type = relationship("InteractiveLessonType", foreign_keys=[interactive_type_id])
 
 class GlossaryTerm(Base):
     __tablename__ = "glossary_terms"
@@ -188,10 +190,10 @@ class UserProgress(Base):
     learning_path_id = Column(Integer, ForeignKey("learning_paths.id"), nullable=True)
     module_id = Column(Integer, nullable=True)
     lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=True)
-    status = Column(String(50), nullable=True)  # e.g., 'completed', 'in_progress', 'not_started'
+    status = Column(String(50), nullable=True)
     progress_percentage = Column(Integer, nullable=True)
-    time_spent = Column(Integer, nullable=True)  # minutes
     started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -252,4 +254,21 @@ class Certificate(Base):
 
     # Relationships
     user = relationship("User", back_populates="certificates")
+    learning_path = relationship("LearningPath")
+
+class Achievement(Base):
+    __tablename__ = "achievements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    achievement_type = Column(String(50), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    icon = Column(String(10), nullable=False, default="🏆")
+    learning_path_id = Column(Integer, ForeignKey("learning_paths.id"), nullable=True)
+    earned_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_active = Column(Boolean, default=True)
+
+    # Relationships
+    user = relationship("User", back_populates="achievements")
     learning_path = relationship("LearningPath") 
